@@ -8,6 +8,7 @@ A desktop client for [DeepSeek Harness](https://www.deepseek.com/harness/) — s
 
 > This project is not affiliated with or endorsed by DeepSeek Harness. It is an independent effort to fill the gap of an official Harness desktop client and make it easier to use.
 
+<img width="1262" height="791" alt="image" src="https://github.com/user-attachments/assets/700aae70-6e51-4bcc-97e0-6b6527523743" />
 <img width="1260" height="790" alt="image" src="https://github.com/user-attachments/assets/1b0fac32-1e3d-496b-a843-876408aa965e" />
 
 
