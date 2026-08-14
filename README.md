@@ -2,9 +2,12 @@
 
 <center>英文 | <a href="README.zh.md">中文</a></center>
 
-A desktop client for DeepSeek Harness — start dsh as easily as using Claude Code or Codex. Double-click and go, no commands needed.
+A desktop client for [DeepSeek Harness](https://www.deepseek.com/harness/) — start dsh as easily as using Claude Code or Codex. Double-click and go, no commands needed.
 
 > This project is not affiliated with or endorsed by DeepSeek Harness. It is an independent effort to fill the gap of an official Harness desktop client and make it easier to use.
+
+<img width="1260" height="790" alt="image" src="https://github.com/user-attachments/assets/1b0fac32-1e3d-496b-a843-876408aa965e" />
+
 
 ## Requirements
 
