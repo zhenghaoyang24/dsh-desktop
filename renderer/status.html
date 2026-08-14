@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+  <title>DeepSeek Harness</title>
+  <link rel="stylesheet" href="status.css">
+</head>
+<body>
+  <div class="bg" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-beam"></div>
+  </div>
+  <main class="card">
+    <img class="logo" src="logo.png" alt="DeepSeek Harness">
+    <h1>DeepSeek Harness</h1>
+
+    <section id="view-detecting" class="view">
+      <div class="spinner"></div>
+      <p class="msg">正在检测环境…</p>
+    </section>
+
+    <section id="view-no-dsh" class="view" hidden>
+      <p class="msg error-title">未检测到 dsh</p>
+      <p class="hint">请选择 dsh 可执行文件（dsh.cmd / dsh.exe）</p>
+      <div class="path-row">
+        <input id="dsh-path" type="text" placeholder="例如 C:\Users\me\AppData\Roaming\npm\dsh.cmd" spellcheck="false">
+        <button id="browse-btn" class="btn">浏览…</button>
+      </div>
+      <p id="path-feedback" class="feedback"></p>
+      <div class="actions">
+        <button id="go-btn" class="btn primary" disabled>开始</button>
+        <button id="home-btn" class="btn link">跳转官网</button>
+      </div>
+    </section>
+
+    <section id="view-starting" class="view" hidden>
+      <div class="spinner"></div>
+      <p class="msg">正在启动 dsh web…</p>
+      <p class="sub" id="starting-sub"></p>
+    </section>
+
+    <section id="view-port-conflict" class="view" hidden>
+      <p class="msg error-title">端口 3080 被其他程序占用</p>
+      <p class="hint">该端口上不是 dsh 服务，为避免加载陌生页面已停止。</p>
+      <p class="hint">请释放端口后重试。</p>
+      <div class="actions">
+        <button id="retry-btn" class="btn primary">重试</button>
+      </div>
+    </section>
+
+    <section id="view-failed" class="view" hidden>
+      <p class="msg error-title">dsh 启动失败</p>
+      <pre id="failed-log" class="log"></pre>
+      <div class="actions">
+        <button id="retry-btn-2" class="btn primary">重试</button>
+      </div>
+    </section>
+
+    <section id="view-crashed" class="view" hidden>
+      <p class="msg error-title">dsh 运行中崩溃</p>
+      <pre id="crashed-log" class="log"></pre>
+      <div class="actions">
+        <button id="restart-btn" class="btn primary">重启</button>
+      </div>
+    </section>
+  </main>
+  <script src="status.js"></script>
+</body>
+</html>

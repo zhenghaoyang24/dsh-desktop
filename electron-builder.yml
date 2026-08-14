@@ -1,0 +1,16 @@
+appId: com.dsh.desktop
+productName: dsh-desktop
+directories:
+  output: build
+files:
+  - main.js
+  - preload.js
+  - renderer/**
+  - package.json
+win:
+  icon: buildResources/logo.png
+  target:
+    - zip
+    - portable
+portable:
+  artifactName: dsh-desktop.exe

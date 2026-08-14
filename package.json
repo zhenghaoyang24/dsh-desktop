@@ -1,0 +1,20 @@
+{
+  "name": "dsh-desktop",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 桌面端",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win zip portable"
+  },
+  "author": "zhenghaoyang24",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhenghaoyang24/dsh-desktop"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3"
+  }
+}
