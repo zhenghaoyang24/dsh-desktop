@@ -59,7 +59,11 @@ function applyTheme() {
   else if (pref === 'light') nativeTheme.themeSource = 'light';
   else nativeTheme.themeSource = 'system';
   const dark = nativeTheme.shouldUseDarkColors;
-  if (win && !win.isDestroyed()) win.setBackgroundColor(dark ? '#151517' : '#f5f7fb');
+  if (win && !win.isDestroyed()) {
+    win.setBackgroundColor(dark ? '#151517' : '#f5f7fb');
+    // 标题栏左上角图标随主题切换：暗色用白色 logo，亮色用黑色 logo
+    win.setIcon(path.join(__dirname, 'buildResources', dark ? 'logo-light.png' : 'logo.png'));
+  }
   return dark;
 }
 
@@ -279,7 +283,7 @@ function createWindow(dark) {
     minHeight: 600,
     title: 'DeepSeek Harness',
     backgroundColor: dark ? '#151517' : '#f5f7fb',
-    icon: path.join(__dirname, 'buildResources', 'logo.png'),
+    icon: path.join(__dirname, 'buildResources', dark ? 'logo-light.png' : 'logo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -336,6 +340,8 @@ if (!gotLock) {
     }
   });
   app.whenReady().then(() => {
+    // 'system' 模式下 OS 主题变化时重新应用（背景色 + 标题栏图标）
+    nativeTheme.on('updated', applyTheme);
     const dark = applyTheme();
     startThemeWatch();
     createWindow(dark);

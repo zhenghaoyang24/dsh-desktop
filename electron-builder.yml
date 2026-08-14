@@ -7,8 +7,9 @@ files:
   - preload.js
   - renderer/**
   - package.json
+  - buildResources/logo*.png
 win:
-  icon: buildResources/logo.png
+  icon: buildResources/icon.png
   target:
     - zip
     - portable
