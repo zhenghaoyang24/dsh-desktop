@@ -1,6 +1,8 @@
 # dsh-desktop
 
-<center>英文 | <a href="README.zh.md">中文</a></center>
+<p align="center">
+  English | <a href="/README.zh.md">中文</a>
+</p>
 
 A desktop client for [DeepSeek Harness](https://www.deepseek.com/harness/) — start dsh as easily as using Claude Code or Codex. Double-click and go, no commands needed.
 
