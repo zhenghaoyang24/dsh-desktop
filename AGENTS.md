@@ -137,6 +137,17 @@ npx electron .
 npm run build    # equivalent to electron-builder --win zip portable
 ```
 
+### Build mirror (important in CN network)
+
+electron-builder downloads Electron/binaries from GitHub, which often times out in China.
+Set the npmmirror mirrors before building (only needed once per shell session):
+
+```powershell
+$env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
+$env:ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-builder-binaries/"
+npm run build
+```
+
 ## Verification checklist (self-test after changes)
 
 - [ ] App starts when `dsh web` is not running: spawns dsh, waits for 3080, loads the page
