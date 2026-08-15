@@ -281,7 +281,7 @@ function createWindow(dark) {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'DeepSeek Harness',
+    title: `DeepSeek Harness ${app.getVersion()}`,
     backgroundColor: dark ? '#151517' : '#f5f7fb',
     icon: path.join(__dirname, 'buildResources', dark ? 'logo-light.png' : 'logo.png'),
     webPreferences: {

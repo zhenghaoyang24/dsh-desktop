@@ -2,5 +2,6 @@ node_modules/
 build/
 dist/
 *.log
+build-log.txt
 .DS_Store
 Thumbs.db

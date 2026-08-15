@@ -1,6 +1,10 @@
 # dsh-desktop
 
 <p align="center">
+  <img src="lgoo.png" alt="dsh-desktop logo" width="160" />
+</p>
+
+<p align="center">
   English | <a href="/README.zh.md">中文</a>
 </p>
 
@@ -21,7 +25,7 @@ A desktop client for [DeepSeek Harness](https://www.deepseek.com/harness/) — s
 
 Download from [GitHub Releases](https://github.com/zhenghaoyang24/dsh-desktop/releases):
 
-- **Portable folder** (recommended): `dsh-desktop-0.1.0-win.zip` — unzip to any folder, then double-click `dsh-desktop.exe`
+- **Portable folder** (recommended): `dsh-desktop-0.1.1-win.zip` — unzip to any folder, then double-click `dsh-desktop.exe`
 - **Single-file portable**: `dsh-desktop.exe` — double-click directly, no extraction needed (self-extracts ~15s on each launch)
 
 The app starts dsh automatically and loads its interface. Close the window to exit — no configuration required.
