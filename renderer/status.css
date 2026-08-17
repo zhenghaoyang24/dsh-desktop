@@ -184,6 +184,47 @@ h1 { font-size: 18px; font-weight: 600; margin-bottom: 28px; }
 
 .path-row { display: flex; gap: 8px; width: 100%; }
 
+.candidate-list {
+  width: 100%;
+  max-height: 180px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--card);
+}
+
+.candidate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.12s;
+}
+
+.candidate:hover { background: var(--btn-hover); }
+
+.candidate input[type="radio"] { accent-color: var(--accent); flex-shrink: 0; }
+
+.candidate-path {
+  font-family: Consolas, "Courier New", monospace;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+input[type="text"]:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.candidate input[type="radio"]:disabled { cursor: not-allowed; }
+
+.candidate input[type="radio"]:disabled + .candidate-path { opacity: 0.55; }
+
 input[type="text"] {
   flex: 1;
   min-width: 0;

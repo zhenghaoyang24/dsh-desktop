@@ -22,17 +22,16 @@
       <p class="msg">正在检测环境…</p>
     </section>
 
-    <section id="view-no-dsh" class="view" hidden>
-      <p class="msg error-title">未检测到 dsh</p>
-      <p class="hint">请选择 dsh 可执行文件（dsh.cmd / dsh.exe）</p>
+    <section id="view-select-dsh" class="view" hidden>
+      <p class="hint">未找到可用的 dsh 缓存，请选择下方找到的 dsh，或手动输入路径：</p>
+      <div id="candidate-list" class="candidate-list"></div>
       <div class="path-row">
         <input id="dsh-path" type="text" placeholder="例如 C:\Users\me\AppData\Roaming\npm\dsh.cmd" spellcheck="false">
         <button id="browse-btn" class="btn">浏览…</button>
       </div>
       <p id="path-feedback" class="feedback"></p>
       <div class="actions">
-        <button id="go-btn" class="btn primary" disabled>开始</button>
-        <button id="home-btn" class="btn link">跳转官网</button>
+        <button id="confirm-btn" class="btn primary">确定</button>
       </div>
     </section>
 
