@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell, nativeTheme, Notification } = require('electron');
 const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -9,6 +9,49 @@ const PORT = 3080;
 const APP_URL = `http://127.0.0.1:${PORT}`;
 const HOME_URL = 'https://www.deepseek.com/harness/';
 const START_TIMEOUT_MS = 30000;
+
+// 注入 dsh 网页的任务观察器：监听合成器主按钮的 停止生成/发送消息 切换，
+// 回答完成后通过 window.electronAPI.notifyTaskComplete() 上报（主进程决定是否通知）
+const TASK_WATCHER = `(() => {
+  if (window.__dshellTaskWatcher) return;
+  window.__dshellTaskWatcher = true;
+  const COMPLETE_DELAY = 800;
+  let generating = false, sawGenerating = false, userStopped = false, timer = null;
+  const isGenerating = () => {
+    const card = document.querySelector('[data-composer-card="true"]');
+    if (!card) return false;
+    if (card.querySelector('button[aria-label*="停止"], button[aria-label*="Stop"]')) return true;
+    const primary = card.querySelector('button[class$="_primary"]');
+    return !!primary && !!primary.querySelector('svg rect');
+  };
+  document.addEventListener('click', (e) => {
+    if (!generating) return;
+    const card = document.querySelector('[data-composer-card="true"]');
+    const stopBtn = card && card.querySelector('button[aria-label*="停止"], button[aria-label*="Stop"]');
+    if (stopBtn && stopBtn.contains(e.target)) userStopped = true;
+  }, true);
+  const check = () => {
+    const now = isGenerating();
+    if (now && !generating) {
+      generating = true; sawGenerating = true; userStopped = false; clearTimeout(timer);
+    } else if (!now && generating) {
+      generating = false;
+      clearTimeout(timer);
+      if (sawGenerating && !userStopped) {
+        timer = setTimeout(() => {
+          if (!isGenerating()) {
+            try { window.electronAPI && window.electronAPI.notifyTaskComplete(); } catch (_) {}
+          }
+        }, COMPLETE_DELAY);
+      }
+      sawGenerating = false;
+    }
+  };
+  new MutationObserver(check).observe(document.documentElement, {
+    childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'],
+  });
+  check();
+})();`;
 
 let win = null;
 let dshProc = null;
@@ -198,6 +241,12 @@ function sendStatus(status) {
   }
 }
 
+function injectTaskWatcher() {
+  if (!win || win.isDestroyed()) return;
+  if (!win.webContents.getURL().startsWith(APP_URL)) return; // 只注入 dsh 页面
+  win.webContents.executeJavaScript(TASK_WATCHER).catch((err) => log('[watcher] ' + err.message));
+}
+
 async function loadApp() {
   webReady = true;
   try {
@@ -297,6 +346,7 @@ function createWindow(dark) {
   });
   win.webContents.on('did-finish-load', () => {
     if (lastStatus) win.webContents.send('status', lastStatus);
+    injectTaskWatcher();
   });
   win.webContents.on('before-input-event', (_e, input) => {
     if (input.type === 'keyDown' && input.key === 'F12') {
@@ -329,10 +379,26 @@ ipcMain.handle('open-homepage', () => shell.openExternal(HOME_URL));
 ipcMain.handle('retry', () => startFlow());
 ipcMain.handle('restart-dsh', () => startFlow());
 
+// 回答完成上报：只在窗口最小化时弹系统通知
+ipcMain.on('task-complete', () => {
+  if (!win || win.isDestroyed()) return;
+  if (!win.isMinimized()) return;
+  const n = new Notification({ title: 'DeepSeek Harness', body: '回答已完成' });
+  n.on('click', () => {
+    if (win && !win.isDestroyed()) {
+      win.restore();
+      win.focus();
+    }
+  });
+  n.show();
+});
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
+  // Windows 通知 toast / 任务栏分组需要 AUMID（与 electron-builder.yml 的 appId 一致）
+  app.setAppUserModelId('com.dsh.desktop');
   app.on('second-instance', () => {
     if (win) {
       if (win.isMinimized()) win.restore();

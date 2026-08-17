@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openHomepage: () => ipcRenderer.invoke('open-homepage'),
   retry: () => ipcRenderer.invoke('retry'),
   restartDsh: () => ipcRenderer.invoke('restart-dsh'),
+  notifyTaskComplete: () => ipcRenderer.send('task-complete'),
 });

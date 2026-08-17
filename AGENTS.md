@@ -94,6 +94,13 @@ States the startup page must cover: detecting → dsh not detected (input) → s
 ### DevTools (Q16)
 - No menu bar; register an **F12 shortcut** to toggle DevTools (off by default)
 
+### Completion notification (2026-08-17)
+- When the harness finishes answering and the window is **minimized**, the app shows a Windows toast ("回答已完成"); clicking it restores and focuses the window
+- Detection: a `TASK_WATCHER` script is injected into the dsh page (only for `APP_URL` loads, re-injected on every `did-finish-load`) — a `MutationObserver` watches the composer card (`[data-composer-card="true"]`); "generating" = the primary button (`button[class$="_primary"]`) shows the stop icon (`svg rect`) or a 停止/Stop aria-label; completion = that state clears after an 800ms settle delay, then `window.electronAPI.notifyTaskComplete()` reports via IPC
+- Manual stop (clicking the stop button) is tracked and does **not** notify
+- Requires `app.setAppUserModelId('com.dsh.desktop')` (matches `appId`) — without it Windows toasts silently fail
+- The selectors are bilingual (zh/en) and resilient to CSS-module hash changes (`[class$="_primary"]`, stable `data-composer-card` attribute)
+
 ## Directory layout
 
 ```
@@ -161,6 +168,7 @@ npm run build
 - [ ] F12 toggles DevTools
 - [ ] Title bar always shows `DeepSeek Harness` (conversation titles never appear)
 - [ ] Switching light/dark/system in the harness UI updates the title bar theme live
+- [ ] Answer finished while the window is minimized → toast "回答已完成"; clicking it restores the window; manual stop does not notify
 
 ## Known risks / notes
 
