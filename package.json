@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win zip portable"
+    "build": "electron-builder --win zip portable",
+    "test": "node --test"
   },
   "author": "zhenghaoyang24",
   "repository": {

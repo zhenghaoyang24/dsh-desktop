@@ -1,10 +1,22 @@
 // 「关于」浮层的样式与脚本：页面内 fixed 覆盖层（遮罩 + 高斯模糊），不改变任何布局；
 // 注入到 dsh 视图（弹在 dsh 内容之上，模糊的就是 dsh 页面本身），启动页作为兜底
 const { REPO_URL } = require("../constants");
+const { PALETTE: P } = require("../theme-palette");
+const { T } = require("../../renderer/status-core"); // i18n 唯一来源
+
+// 关于浮层用到的文案子集，注入到页面脚本里
+const ABOUT_KEYS = [
+  "currentDsh", "about", "fetching", "dshPath", "dshVersion",
+  "port", "mode", "modeApp", "modeReuse", "log", "notDetected", "version", "repo",
+];
+const ABOUT_I18N = JSON.stringify({
+  zh: Object.fromEntries(ABOUT_KEYS.map((k) => [k, T.zh[k]])),
+  en: Object.fromEntries(ABOUT_KEYS.map((k) => [k, T.en[k]])),
+});
 
 const ABOUT_OVERLAY_CSS = `
 .dsho-overlay {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
+  position: fixed; inset: 0; background: ${P.backdrop};
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center;
@@ -14,19 +26,19 @@ const ABOUT_OVERLAY_CSS = `
 .dsho-panel[hidden] { display: none; }
 .dsho-box {
   position: relative; width: 440px; max-width: 90vw;
-  background: #ffffff; color: #1f2329;
+  background: ${P.boxBg.light}; color: ${P.barFg.light};
   border-radius: 12px; padding: 20px 22px;
   font-size: 13px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
-  --dsho-border: #e5e7eb;
-  --dsho-muted: #6b7280;
-  --dsho-accent: rgb(86, 134, 254);
+  --dsho-border: ${P.border.light};
+  --dsho-muted: ${P.textMuted.light};
+  --dsho-accent: ${P.accent};
 }
 html[data-dshc-theme="dark"] .dsho-box {
-  background: rgb(35, 35, 36); color: rgb(249, 250, 251);
-  --dsho-border: rgba(255, 255, 255, 0.08);
-  --dsho-muted: rgb(129, 133, 140);
-  --dsho-accent: rgb(86, 134, 254);
+  background: ${P.boxBg.dark}; color: ${P.barFg.dark};
+  --dsho-border: ${P.border.dark};
+  --dsho-muted: ${P.textMuted.dark};
+  --dsho-accent: ${P.accent};
 }
 .dsho-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -69,26 +81,11 @@ function aboutOverlayScript(dark, lang) {
   return `(() => {
   if (window.__dshAbout) return;
   var api = window.electronAPI;
-  var LANG = {
-    zh: {
-      currentDsh: '当前 dsh', about: '关于', fetching: '正在获取…',
-      dshPath: 'dsh 路径：', dshVersion: 'dsh 版本：', port: '启动端口：',
-      mode: '启动方式：', modeApp: '应用启动', modeReuse: '复用已有实例',
-      log: '应用日志：', notDetected: '（未检测到）',
-      version: '版本：dsh-desktop v', repo: '仓库：',
-    },
-    en: {
-      currentDsh: 'Current dsh', about: 'About', fetching: 'Fetching…',
-      dshPath: 'dsh path: ', dshVersion: 'dsh version: ', port: 'port: ',
-      mode: 'start mode: ', modeApp: 'started by app', modeReuse: 'reused existing instance',
-      log: 'app log: ', notDetected: '(not detected)',
-      version: 'version: dsh-desktop v', repo: 'repository: ',
-    },
-  };
   var cur = ${JSON.stringify(lang === "zh" ? "zh" : "en")};
+  var I18N = ${ABOUT_I18N};
   var showType = 'dsh';
   var info = null;
-  function t(key) { return (LANG[cur] && LANG[cur][key]) || LANG['zh'][key]; }
+  function t(key) { return (I18N[cur] && I18N[cur][key]) || I18N['zh'][key]; }
   function mk(tag, cls, text) {
     var el = document.createElement(tag);
     if (cls) el.className = cls;

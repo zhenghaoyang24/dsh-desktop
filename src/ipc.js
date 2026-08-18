@@ -66,8 +66,10 @@ ipcMain.handle("open-help-menu", (_e, rect) => {
   }
 });
 
-// 关于浮层数据：dsh 路径按 自启记录 → 缓存 → PATH 候选 依次检测，取第一个有效值
+// 关于浮层数据：会话内缓存（首次探测：自启记录 → 缓存 → PATH 候选，取第一个有效值；
+// 之后直接复用，startFlow 时失效——运行中的 dsh 可能已变化）
 ipcMain.handle("get-app-info", async () => {
+  if (state.appInfoCache) return state.appInfoCache;
   let dshPath = null;
   let dshVersion = null;
   const seen = new Set();
@@ -85,7 +87,7 @@ ipcMain.handle("get-app-info", async () => {
       break;
     }
   }
-  return {
+  state.appInfoCache = {
     version: app.getVersion(),
     dshPath,
     dshVersion,
@@ -93,6 +95,7 @@ ipcMain.handle("get-app-info", async () => {
     port: PORT,
     logPath: logFile(),
   };
+  return state.appInfoCache;
 });
 
 ipcMain.handle("open-log", () => {

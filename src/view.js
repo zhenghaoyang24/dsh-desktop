@@ -6,6 +6,7 @@ const { TASK_WATCHER } = require("./injected/task-watcher");
 const { injectAboutOverlay, setHelpBtn } = require("./injected/index");
 const { isExternalUrl } = require("./external");
 const { sendStatus } = require("./status");
+const { color } = require("./theme-palette");
 
 // 注入 dsh 网页的任务观察器：监听合成器主按钮的 停止生成/发送消息 切换，
 // 回答完成后通过 window.electronAPI.notifyTaskComplete() 上报（主进程决定是否通知）
@@ -47,7 +48,7 @@ async function loadApp() {
       },
     });
     // 视图背景跟随主题，避免 dsh 页加载期间的短暂白屏
-    state.dshView.setBackgroundColor(nativeTheme.shouldUseDarkColors ? "#151517" : "#f5f7fb");
+    state.dshView.setBackgroundColor(color("windowBg", nativeTheme.shouldUseDarkColors));
     const wc = state.dshView.webContents;
     wc.on("did-finish-load", () => {
       injectTaskWatcher(wc);

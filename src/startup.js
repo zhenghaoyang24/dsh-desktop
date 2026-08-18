@@ -17,6 +17,7 @@ function startFailureText(result) {
 async function startFlow() {
   if (state.busy) return;
   state.busy = true;
+  state.appInfoCache = null; // 重新探测后，关于浮层的缓存随之失效
   killDsh();
   removeDshView(); // 重试/重启时先撤掉旧的 dsh 视图，回到启动页
   try {
@@ -74,16 +75,14 @@ async function startFlow() {
       sendStatus({ state: "failed", stderr: startFailureText(result) });
       return;
     }
-    // 缓存路径失效 → 自动降级：PATH 候选里取第一个验证有效的重试
+    // 缓存路径失效 → 自动降级：PATH 候选里取第一个验证有效的重试。
+    // 并发验证全部候选（最坏从逐个累加 ~N×400ms 降到最慢一个 ~400ms），
+    // 再按原顺序取第一个有效值（Array.map 保证结果顺序与 candidates 一致）
     log("[startup] cached dsh path invalid, falling back to PATH candidates");
     const candidates = await findDshCandidates();
-    let fallback = null;
-    for (const c of candidates) {
-      if (await verifyDsh(c)) {
-        fallback = c;
-        break;
-      }
-    }
+    const results = await Promise.all(candidates.map((c) => verifyDsh(c)));
+    const found = results.findIndex((v) => v);
+    const fallback = found >= 0 ? candidates[found] : null;
     if (!fallback) {
       sendStatus({ state: "select-dsh", candidates });
       return;

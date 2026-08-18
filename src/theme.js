@@ -4,6 +4,7 @@ const { nativeTheme } = require("electron");
 const { state } = require("./state");
 const { dshHome, buildResource } = require("./paths");
 const { applyLanguage } = require("./i18n");
+const { color } = require("./theme-palette");
 
 function readThemePreference() {
   const home = dshHome();
@@ -29,14 +30,14 @@ function applyTheme() {
   const dark = nativeTheme.shouldUseDarkColors;
   const win = state.win;
   if (win && !win.isDestroyed()) {
-    win.setBackgroundColor(dark ? "#151517" : "#f5f7fb");
+    win.setBackgroundColor(color("windowBg", dark));
     // 任务栏图标随主题切换：暗色用白色 logo，亮色用黑色 logo
     win.setIcon(buildResource(dark ? "logo-light.png" : "logo.png"));
     if (process.platform === "win32") {
       // 自绘顶栏 + Window Controls Overlay：原生窗口按钮区颜色随主题
       win.setTitleBarOverlay({
-        color: dark ? "#1b1b1c" : "#f9fafb",
-        symbolColor: dark ? "#f9fafb" : "#1f2329",
+        color: color("barBg", dark),
+        symbolColor: color("symbol", dark),
         height: 30,
       });
     }

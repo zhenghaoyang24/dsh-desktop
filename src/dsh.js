@@ -1,5 +1,5 @@
 const fs = require("fs");
-const { spawn, execFile } = require("child_process");
+const cp = require("child_process");
 const { isFile } = require("./settings-store");
 const { probePort, killPortOwner } = require("./port");
 const { log } = require("./paths");
@@ -14,11 +14,11 @@ function isCmd(p) {
 
 function runDshCmd(dshPath, args) {
   if (isCmd(dshPath)) {
-    return spawn("cmd.exe", ["/d", "/s", "/c", `""${dshPath}" ${args.join(" ")}"`], {
+    return cp.spawn("cmd.exe", ["/d", "/s", "/c", `""${dshPath}" ${args.join(" ")}"`], {
       windowsVerbatimArguments: true,
     });
   }
-  return spawn(dshPath, args, {});
+  return cp.spawn(dshPath, args, {});
 }
 
 function verifyDsh(dshPath) {
@@ -48,7 +48,7 @@ function verifyDsh(dshPath) {
 // 收集 PATH 上所有 dsh 候选（去重；优先 .cmd/.bat/.exe，全部无扩展名时才退回原样）
 function findDshCandidates() {
   return new Promise((resolve) => {
-    execFile("where.exe", ["dsh"], { windowsHide: true }, (err, stdout) => {
+    cp.execFile("where.exe", ["dsh"], { windowsHide: true }, (err, stdout) => {
       if (err) return resolve([]);
       const hits = [
         ...new Set(
@@ -85,7 +85,7 @@ function killDsh(always) {
       else done();
     };
     if (!pid) return finish();
-    const tk = spawn("taskkill.exe", ["/pid", String(pid), "/T", "/F"], {
+    const tk = cp.spawn("taskkill.exe", ["/pid", String(pid), "/T", "/F"], {
       stdio: "ignore",
       windowsHide: true,
       detached: true,

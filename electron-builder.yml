@@ -9,6 +9,10 @@ files:
   - renderer/**
   - package.json
   - buildResources/logo*.png
+# 界面只使用中/英，只打包这两种 Chromium 内置资源，去掉其余 50+ 语言包
+electronLanguages:
+  - zh-CN
+  - en-US
 win:
   icon: buildResources/icon.png
   target:

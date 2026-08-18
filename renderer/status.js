@@ -3,53 +3,13 @@ if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark'
 
 // 界面语言：跟随主进程传入的 ?lang=（仅 zh 用中文；其余默认英文）
 const lang = new URLSearchParams(location.search).get('lang') === 'zh' ? 'zh' : 'en';
-const T = {
-  zh: {
-    detecting: '正在检测环境…',
-    selectHint: '未找到可用的 dsh 缓存，请选择下方找到的 dsh，或手动输入路径：',
-    pathPlaceholder: '例如 C:\\Users\\me\\AppData\\Roaming\\npm\\dsh.cmd',
-    browse: '浏览…',
-    confirm: '确定',
-    starting: '正在启动 dsh web…',
-    portConflictTitle: '端口 3080 被其他程序占用',
-    portConflictHint1: '该端口上不是 dsh 服务，为避免加载陌生页面已停止。',
-    portConflictHint2: '请释放端口后重试。',
-    retry: '重试',
-    failedTitle: 'dsh 启动失败',
-    crashedTitle: 'dsh 运行中崩溃',
-    restart: '重启',
-    noCandidates: '未在 PATH 中找到 dsh，请手动输入路径',
-    pathFormatErr: '路径格式不正确，请输入形如 C:\\path\\to\\dsh.cmd 的路径',
-    selectOrInput: '请选择或输入 dsh 路径',
-    validating: '校验中…',
-    timeoutErr: (n) => `校验超时（${n} 秒），请重试`,
-    errNoDsh: '未检测到此路径下有 dsh',
-  },
-  en: {
-    detecting: 'Detecting environment…',
-    selectHint: 'No usable dsh cache was found. Pick a detected dsh below, or enter a path manually:',
-    pathPlaceholder: 'e.g. C:\\Users\\me\\AppData\\Roaming\\npm\\dsh.cmd',
-    browse: 'Browse…',
-    confirm: 'Confirm',
-    starting: 'Starting dsh web…',
-    portConflictTitle: 'Port 3080 is occupied by another program',
-    portConflictHint1: 'The service on this port is not dsh, so the app stopped to avoid loading an unknown page.',
-    portConflictHint2: 'Free the port and try again.',
-    retry: 'Retry',
-    failedTitle: 'dsh failed to start',
-    crashedTitle: 'dsh crashed while running',
-    restart: 'Restart',
-    noCandidates: 'No dsh found in PATH; enter a path manually',
-    pathFormatErr: 'Invalid path format; enter something like C:\\path\\to\\dsh.cmd',
-    selectOrInput: 'Select or enter a dsh path',
-    validating: 'Validating…',
-    timeoutErr: (n) => `Validation timed out (${n}s); try again`,
-    errNoDsh: 'No dsh found at this path',
-  },
-};
+// 纯逻辑与文案字典定义在 status-core.js（浏览器挂到 window.DSHStartup；测试可直接 require）
+const { looksLikePath, T } = window.DSHStartup;
 const t = (key, ...args) => {
   const s = (T[lang] && T[lang][key]) ?? T.zh[key];
-  return typeof s === 'function' ? s(...args) : s;
+  if (typeof s !== 'string') return s;
+  // 支持 {0} {1}… 占位符（如 timeoutErr）
+  return s.replace(/\{(\d+)\}/g, (_, i) => args[Number(i)] ?? '');
 };
 function applyI18n() {
   document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
@@ -69,15 +29,6 @@ function show(state) {
   for (const v of VIEWS) {
     $(`view-${v}`).hidden = v !== state;
   }
-}
-
-// 校验输入是否为 Windows 路径格式（盘符/UNC 开头，且不含非法字符）
-function looksLikePath(p) {
-  if (!p || p.length < 3) return false;
-  const drive = /^[a-zA-Z]:[\\/]/.test(p);
-  const unc = /^\\\\[^\\]+\\[^\\]+/.test(p);
-  if (!drive && !unc) return false;
-  return !/[<>"|?*]/.test(drive ? p.slice(3) : p);
 }
 
 // 校验期间禁用：确认按钮、路径输入框、浏览按钮、候选单选

@@ -6,6 +6,7 @@ const { killDsh } = require("./dsh");
 const { layoutDshView } = require("./view");
 const { injectChrome } = require("./injected/index");
 const { isExternalUrl } = require("./external");
+const { color } = require("./theme-palette");
 
 function createWindow(dark) {
   state.win = new BrowserWindow({
@@ -16,11 +17,11 @@ function createWindow(dark) {
     title: `dsh-desktop ${app.getVersion()}`,
     titleBarStyle: "hidden",
     titleBarOverlay: {
-      color: dark ? "#1b1b1c" : "#f9fafb",
-      symbolColor: dark ? "#f9fafb" : "#1f2329",
+      color: color("barBg", dark),
+      symbolColor: color("symbol", dark),
       height: 30,
     },
-    backgroundColor: dark ? "#151517" : "#f5f7fb",
+    backgroundColor: color("windowBg", dark),
     icon: buildResource(dark ? "logo-light.png" : "logo.png"),
     webPreferences: {
       preload: preloadPath,

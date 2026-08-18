@@ -1,4 +1,8 @@
 // 自绘顶栏（标题栏）的样式与脚本：注入到启动页
+const { PALETTE: P } = require("../theme-palette");
+const { T } = require("../../renderer/status-core"); // i18n 唯一来源
+const CHROME_I18N = JSON.stringify({ zh: { help: T.zh.help }, en: { help: T.en.help } });
+
 const CHROME_CSS = `
 .dshc-bar {
   position: fixed; top: 0; left: 0; right: 0; height: 32px;
@@ -11,8 +15,8 @@ const CHROME_CSS = `
   user-select: none;
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
 }
-html[data-dshc-theme="dark"] .dshc-bar { background: #1b1b1c; color: rgb(249, 250, 251); --dshc-border: rgba(255, 255, 255, 0.08); --dshc-muted: rgb(129, 133, 140); }
-html[data-dshc-theme="light"] .dshc-bar { background: #f9fafb; color: #1f2329; --dshc-border: #e5e7eb; --dshc-muted: #6b7280; }
+html[data-dshc-theme="dark"] .dshc-bar { background: ${P.barBg.dark}; color: ${P.barFg.dark}; --dshc-border: ${P.border.dark}; --dshc-muted: ${P.textMuted.dark}; }
+html[data-dshc-theme="light"] .dshc-bar { background: ${P.barBg.light}; color: ${P.barFg.light}; --dshc-border: ${P.border.light}; --dshc-muted: ${P.textMuted.light}; }
 /* 顶栏左侧 logo：复用渲染页 logo.png（黑色透明底），暗色主题下 filter: invert 转为白色 */
 .dshc-brand { height: 16px; width: auto; flex-shrink: 0; -webkit-user-drag: none; }
 html[data-dshc-theme="dark"] .dshc-brand { filter: invert(1); }
@@ -23,7 +27,7 @@ html[data-dshc-theme="dark"] .dshc-brand { filter: invert(1); }
   background: transparent; color: var(--dshc-muted);
 }
 /* hover 时按钮文字回归主要文本色（继承顶栏的 color，即主文字色） */
-.dshc-btn:hover { background: rgba(128, 128, 128, 0.18); color: inherit; }
+.dshc-btn:hover { background: ${P.hoverBg}; color: inherit; }
 /* 下拉菜单打开期间取消按钮 hover（原生菜单接管鼠标后页面收不到 mouseleave，会残留高亮） */
 .dshc-btn.dshc-menu-open, .dshc-btn.dshc-menu-open:hover { background: transparent; color: var(--dshc-muted); }
 `;
@@ -33,9 +37,10 @@ function chromeScript(dark, lang) {
   if (window.__dshChrome) return;
   window.__dshChrome = true;
   var cur = ${JSON.stringify(lang === "zh" ? "zh" : "en")};
+  var I18N = ${CHROME_I18N};
   function applyLang(l) {
     cur = l === 'zh' ? 'zh' : 'en';
-    btnHelp.textContent = cur === 'zh' ? '帮助' : 'Help';
+    btnHelp.textContent = I18N[cur].help;
   }
   function mk(tag, cls, text) {
     var el = document.createElement(tag);

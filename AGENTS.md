@@ -72,7 +72,7 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 - Covers every app-owned string: the top-bar 帮助 button (`Help`/帮助), the three help-menu items, the entire 「当前 dsh / 关于」 overlay (title, labels, placeholders, mode/version text), all startup-page states (detecting / select / starting / port-conflict / failed / crashed + feedback hints), the reused-dsh close prompt dialog, and the completion toast
 - Two delivery paths: the startup page gets its initial language via the `?lang=zh|en` `loadFile` query (same mechanism as `?theme=`); the injected top bar and about overlay subscribe to the `chrome-language` IPC event (pushed by `applyLanguage()` to both `win.webContents` and the dsh view) for **live** switching
 - `startSettingsWatch` (renamed from `startThemeWatch`) syncs theme and language together from the same `settings.yaml` watcher (~300ms debounce); the about overlay re-renders in place, keeping already-fetched dsh info and only swapping copy
-- Main-process strings use a `UI`/`t()` dictionary (`currentLang`); preload exposes `onChromeLanguage`
+- Main-process strings use `t()` (`currentLang`); **all strings live in one source** — `renderer/status-core.js`'s `T` (id → {zh,en}); main-process `src/i18n.js` and the injected `chrome`/`about` scripts pull from it (embedding an id-subset JSON); preload exposes `onChromeLanguage`
 
 ### Tech stack (Q5)
 - **Plain JavaScript** — no TypeScript, no framework, no Vite/build step
@@ -133,8 +133,9 @@ dsh-desktop\
 │   ├── state.js             # Shared mutable state (win / dshView / dshProc / startMode / …)
 │   ├── settings-store.js    # readSettings / writeSettings / isFile
 │   ├── status.js            # sendStatus (startup-page state push)
-│   ├── i18n.js              # UI dict + t() + readLangPreference + applyLanguage
+│   ├── i18n.js              # t() + readLangPreference + applyLanguage（文案取 renderer/status-core）
 │   ├── theme.js             # readThemePreference + applyTheme + startSettingsWatch
+│   ├── theme-palette.js     # PALETTE + color()（主进程与注入样式共用的主题色板）
 │   ├── port.js              # probePort (3080 dsh match) + killPortOwner (netstat)
 │   ├── external.js          # isExternalUrl (links to system browser)
 │   ├── dsh.js               # runDshCmd / verifyDsh / findDshCandidates / spawnDsh / killDsh / waitForPort
@@ -149,9 +150,16 @@ dsh-desktop\
 │       └── index.js         # injectChrome / injectAboutOverlay / showAboutDialog / setHelpBtn / resolveHelpHover
 ├── renderer/
 │   ├── status.html          # Startup page (single page, all states) + top-bar host
+│   ├── status-core.js       # 启动页纯逻辑（looksLikePath）+ i18n 唯一来源 T（浏览器/主进程/注入共用单源）
 │   ├── status.css
 │   ├── status.js
 │   └── logo.png             # Startup-page top logo (copy of buildResources')
+├── test/                    # node:test 自动化测试（pnpm test 运行）
+│   ├── external.test.js     # isExternalUrl
+│   ├── status-core.test.js  # looksLikePath + i18n 字典完整性
+│   ├── startup.test.js      # startFailureText
+│   ├── dsh.test.js          # verifyDsh（mock child_process 超时/退出/error 分支）
+│   └── port.test.js         # probePort（match / 非 dsh / error / timeout）
 ├── buildResources/
 │   ├── logo.png             # Black DeepSeek logo, transparent bg (light-mode window icon)
 │   ├── logo-light.png       # White DeepSeek logo (dark-mode window icon, inverted from logo.png)
@@ -179,8 +187,11 @@ dsh-desktop\
 # Development
 npx electron .
 
+# Test
+pnpm test    # node --test（纯逻辑 / mock 进程与端口探测）
+
 # Build (output to build/: zip directory build + single-file portable)
-npm run build    # equivalent to electron-builder --win zip portable
+pnpm run build    # equivalent to electron-builder --win zip portable
 ```
 
 ### Build mirror (important in CN network)
@@ -191,7 +202,7 @@ Set the npmmirror mirrors before building (only needed once per shell session):
 ```powershell
 $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
 $env:ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-builder-binaries/"
-npm run build
+pnpm run build
 ```
 
 ## Verification checklist (self-test after changes)

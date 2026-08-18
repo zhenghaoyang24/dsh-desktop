@@ -13,6 +13,7 @@ const state = {
   currentDshPath: null, // 本次会话实际使用的 dsh 路径（自启时记录；复用时置空）
   startMode: null, // dsh 启动方式：'app' = 应用自启；'reuse' = 复用已有实例
   currentLang: "en", // 界面语言：'zh' | 'en'
+  appInfoCache: null, // get-app-info 的会话内缓存（弹「当前 dsh/关于」只探测一次；startFlow 时失效）
   dshView: null, // dsh 页面所在独立视图（WebContentsView，位于顶栏下方）
   killOnClose: false, // 关闭应用时是否一并关闭 3080 上的 dsh
   closePromptDone: false, // 复用场景退出询问弹窗是否已决策
