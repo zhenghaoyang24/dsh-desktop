@@ -3,12 +3,12 @@ const fs = require("fs");
 const path = require("path");
 const { state } = require("./state");
 const { t } = require("./i18n");
-const { verifyDsh, findDshCandidates } = require("./dsh");
+const { verifyDsh, findDshCandidates, checkLatestDshVersion } = require("./dsh");
 const { readSettings } = require("./settings-store");
 const { startFlow } = require("./startup");
-const { showAboutDialog, resolveHelpHover } = require("./injected/index");
+const { showAboutDialog, showUpdateCheckDialog, resolveHelpHover } = require("./injected/index");
 const { log, logFile } = require("./paths");
-const { PORT, HOME_URL, COMMUNITY_URL, REPO_URL } = require("./constants");
+const { PORT, HOME_URL, COMMUNITY_URL, REPO_URL, DSH_NPM_NAME } = require("./constants");
 
 ipcMain.handle("confirm-dsh-path", async (_e, p) => {
   if (typeof p !== "string" || !p.trim()) return { ok: false, error: t("errPathEmpty") };
@@ -39,6 +39,7 @@ ipcMain.handle("open-help-menu", (_e, rect) => {
   if (!state.win || state.win.isDestroyed()) return;
   const menu = Menu.buildFromTemplate([
     { label: t("menuCurrentDsh"), click: () => showAboutDialog("dsh") },
+    { label: t("menuCheckUpdate"), click: () => showUpdateCheckDialog() },
     { type: "separator" },
     { label: t("menuHome"), click: () => shell.openExternal(HOME_URL) },
     { label: t("menuCommunity"), click: () => shell.openExternal(COMMUNITY_URL) },
@@ -67,6 +68,39 @@ ipcMain.handle("open-help-menu", (_e, rect) => {
     log("[menu] " + err.message);
     setMenuOpen(false);
   }
+});
+
+// 检查 dsh 更新：获取当前版本 + 比较 npm registry 上的最新版本
+ipcMain.handle("check-dsh-update", async () => {
+  // 取当前版本：优先用缓存，失败则重新验证
+  let currentVersion = null;
+  if (state.appInfoCache && state.appInfoCache.dshVersion) {
+    currentVersion = state.appInfoCache.dshVersion;
+  } else {
+    const seen = new Set();
+    for (const c of [
+      state.currentDshPath,
+      readSettings().dshPath,
+      ...(await findDshCandidates()),
+    ]) {
+      if (!c || seen.has(c)) continue;
+      seen.add(c);
+      const v = await verifyDsh(c);
+      if (v) { currentVersion = v; break; }
+    }
+  }
+  // 检查最新版本（走 cmd.exe 继承完整用户环境）
+  const result = await checkLatestDshVersion();
+  const latestVersion = result.version;
+  const error = result.error;
+  // 语义化版本比较: 取第一段数字部分比较
+  let hasUpdate = false;
+  if (currentVersion && latestVersion) {
+    const cur = currentVersion.match(/^\d+\.\d+\.\d+/);
+    const lat = latestVersion.match(/^\d+\.\d+\.\d+/);
+    if (cur && lat) hasUpdate = lat[0] !== cur[0];
+  }
+  return { currentVersion, latestVersion, hasUpdate, error, pkgName: DSH_NPM_NAME };
 });
 
 // 关于浮层数据：会话内缓存（首次探测：自启记录 → 缓存 → PATH 候选，取第一个有效值；

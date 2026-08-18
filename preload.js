@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openRepo: () => ipcRenderer.invoke('open-repo'),
   openLog: () => ipcRenderer.invoke('open-log'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+  checkDshUpdate: () => ipcRenderer.invoke('check-dsh-update'),
   onChromeTheme: (cb) => ipcRenderer.on('chrome-theme', (_e, d) => cb(d)),
   onChromeLanguage: (cb) => ipcRenderer.on('chrome-language', (_e, l) => cb(l)),
   onHelpMenuState: (cb) => ipcRenderer.on('help-menu-state', (_e, open) => cb(open)),

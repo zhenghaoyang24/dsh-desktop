@@ -4,12 +4,21 @@ const { state } = require("../state");
 const { log } = require("../paths");
 const { CHROME_CSS, chromeScript } = require("./chrome");
 const { ABOUT_OVERLAY_CSS, aboutOverlayScript } = require("./about");
+const { UPDATE_CHECK_CSS, updateCheckScript } = require("./update-check");
 
 function injectAboutOverlay(wc, dark, lang) {
   if (!wc || wc.isDestroyed()) return;
   wc.insertCSS(ABOUT_OVERLAY_CSS).catch((err) => log("[about-css] " + err.message));
   wc.executeJavaScript(aboutOverlayScript(dark, lang)).catch((err) =>
     log("[about] " + err.message),
+  );
+}
+
+function injectUpdateCheckOverlay(wc, dark, lang) {
+  if (!wc || wc.isDestroyed()) return;
+  wc.insertCSS(UPDATE_CHECK_CSS).catch((err) => log("[update-css] " + err.message));
+  wc.executeJavaScript(updateCheckScript(dark, lang)).catch((err) =>
+    log("[update] " + err.message),
   );
 }
 
@@ -23,6 +32,7 @@ function injectChrome(dark) {
     .then(() => setHelpBtn(state.dshView != null)) // 脚本执行完监听器已就绪，补发按钮可见性（防止竞态丢失）
     .catch((err) => log("[chrome] " + err.message));
   injectAboutOverlay(win.webContents, dark, state.currentLang); // 启动页兜底（dsh 视图未创建时）
+  injectUpdateCheckOverlay(win.webContents, dark, state.currentLang); // 同上，检查更新浮层兜底
 }
 
 // 关于浮层：type = 'dsh'（当前 dsh 信息）| 'app'（软件版本 + 仓库地址）
@@ -35,6 +45,18 @@ function showAboutDialog(type) {
       : state.win.webContents;
   target
     .executeJavaScript(`window.__dshAbout && window.__dshAbout.show(${JSON.stringify(type)})`)
+    .catch(() => {});
+}
+
+// 检查更新浮层
+function showUpdateCheckDialog() {
+  if (!state.win || state.win.isDestroyed()) return;
+  const target =
+    state.dshView && !state.dshView.webContents.isDestroyed()
+      ? state.dshView.webContents
+      : state.win.webContents;
+  target
+    .executeJavaScript(`window.__dshUpdateCheck && window.__dshUpdateCheck.show()`)
     .catch(() => {});
 }
 
@@ -64,8 +86,10 @@ function resolveHelpHover() {
 
 module.exports = {
   injectAboutOverlay,
+  injectUpdateCheckOverlay,
   injectChrome,
   showAboutDialog,
+  showUpdateCheckDialog,
   setHelpBtn,
   resolveHelpHover,
 };

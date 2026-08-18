@@ -3,7 +3,7 @@ const { preloadPath, log } = require("./paths");
 const { APP_URL, BAR_HEIGHT } = require("./constants");
 const { state } = require("./state");
 const { TASK_WATCHER } = require("./injected/task-watcher");
-const { injectAboutOverlay, setHelpBtn } = require("./injected/index");
+const { injectAboutOverlay, injectUpdateCheckOverlay, setHelpBtn } = require("./injected/index");
 const { isExternalUrl } = require("./external");
 const { sendStatus } = require("./status");
 const { color } = require("./theme-palette");
@@ -53,6 +53,7 @@ async function loadApp() {
     wc.on("did-finish-load", () => {
       injectTaskWatcher(wc);
       injectAboutOverlay(wc, nativeTheme.shouldUseDarkColors, state.currentLang);
+      injectUpdateCheckOverlay(wc, nativeTheme.shouldUseDarkColors, state.currentLang);
     });
     wc.on("page-title-updated", (e) => e.preventDefault());
     // 外部链接转交系统默认浏览器

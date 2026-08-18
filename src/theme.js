@@ -43,6 +43,9 @@ function applyTheme() {
     }
     // 注入的顶栏主题同步
     win.webContents.send("chrome-theme", dark);
+    if (state.dshView && !state.dshView.webContents.isDestroyed()) {
+      state.dshView.webContents.send("chrome-theme", dark);
+    }
   }
   return dark;
 }

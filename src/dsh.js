@@ -6,7 +6,7 @@ const { log } = require("./paths");
 const { state } = require("./state");
 const { sendStatus } = require("./status");
 const { removeDshView } = require("./view");
-const { START_TIMEOUT_MS } = require("./constants");
+const { START_TIMEOUT_MS, DSH_NPM_NAME } = require("./constants");
 
 function isCmd(p) {
   return /\.(cmd|bat)$/i.test(p);
@@ -144,6 +144,48 @@ function waitForPort(child, timeoutMs = START_TIMEOUT_MS) {
   });
 }
 
+// 检查 npm registry 上 dsh 的最新版本
+// 走 cmd.exe /c 继承完整用户环境（PATH、注册表、用户配置等），等同于在终端里敲 npm view
+// 返回 { version: "x.y.z" | null, error: string | null }
+function checkLatestDshVersion() {
+  return new Promise((resolve) => {
+    const child = cp.spawn(
+      "cmd.exe",
+      ["/d", "/s", "/c", `"npm view ${DSH_NPM_NAME} version"`],
+      { windowsHide: true, windowsVerbatimArguments: true, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let out = "";
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch (_) {}
+    }, 15000);
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (out += d));
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve({ version: null, error: "npm_not_found" });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        const s = out.trim().toLowerCase();
+        if (s.includes("enoent") || s.includes("not found") || s.includes("'" + DSH_NPM_NAME.toLowerCase() + "' is not recognized")) {
+          return resolve({ version: null, error: "npm_not_found" });
+        }
+        if (s.includes("network") || s.includes("connect") || s.includes("timeout") || s.includes("eresolve")) {
+          return resolve({ version: null, error: "network" });
+        }
+        return resolve({ version: null, error: "unknown" });
+      }
+      const ver = out.trim();
+      if (/^\d+\.\d+\.\d+/.test(ver)) {
+        resolve({ version: ver, error: null });
+      } else {
+        resolve({ version: null, error: "unknown" });
+      }
+    });
+  });
+}
+
 module.exports = {
   isCmd,
   runDshCmd,
@@ -153,4 +195,5 @@ module.exports = {
   spawnDsh,
   waitForPort,
   pushDshOutput,
+  checkLatestDshVersion,
 };
