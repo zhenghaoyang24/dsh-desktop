@@ -24,7 +24,7 @@ DeepSeek Harness 桌面端，像用 Claude Code、Codex 一样轻松启动 dsh�
 
 从 [GitHub Releases](https://github.com/zhenghaoyang24/dsh-desktop/releases) 下载：
 
-- **解压版**（推荐）：`dsh-desktop-0.1.2-win.zip`，解压到任意文件夹，双击 `dsh-desktop.exe`
+- **解压版**（推荐）：`dsh-desktop-0.1.3-win.zip`，解压到任意文件夹，双击 `dsh-desktop.exe`
 - **免安装版**：`dsh-desktop.exe`，单个文件直接双击，免解压（每次启动需自解压约 15 秒）
 
 启动后自动拉起 dsh 并加载界面，关闭窗口即退出，无需任何配置。

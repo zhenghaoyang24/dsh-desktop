@@ -63,8 +63,10 @@ function renderCandidates(candidates) {
     radio.name = 'dsh-candidate';
     radio.value = c;
     // 点击事件触发时浏览器已更新 checked，必须用 mousedown 记录点击前状态，
-    // 才能区分「新选中」和「再次点击取消选择」
-    radio.addEventListener('mousedown', () => {
+    // 才能区分「新选中」和「再次点击取消选择」。
+    // mousedown 挂在 label 上：点 radio 小圆点会冒泡到 label，点 label 文字
+    // 只有 click 被转发（mousedown 不会），两者都要记录点击前状态
+    label.addEventListener('mousedown', () => {
       radio.dataset.prev = radio.checked ? '1' : '0';
     });
     radio.addEventListener('click', () => {

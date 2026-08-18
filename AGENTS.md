@@ -28,20 +28,24 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 - HTML contains `window.__DSH_BOOT__`
 - Match → reuse; 200 but no match → occupied by non-dsh
 
-### dsh provisioning (Q1, updated 2026-08-17: manual selection)
+### dsh provisioning (Q1, updated 2026-08-17: manual selection; updated 2026-08-17: trust-direct-start)
 - Depends **only on the system-global dsh**; no bundled dsh
-- Detection order:
-  1. Check the path saved in `userData/settings.json` → verify it with `dsh -V` (with an `fs.existsSync` fast precheck) → valid → use it directly
-  2. Cached path invalid/missing → collect **all** dsh candidates from `where dsh` (deduped, prefer `.cmd/.bat/.exe`; extensionless only if nothing else) and show them on the startup page
-  3. The startup page shows a candidate list (radio buttons, click again to deselect) + a manual path input ("Browse…" picker) + a confirm button:
+- Detection order (startup, only when 3080 is free):
+  1. Port probe and PATH-candidate collection run **in parallel** (candidates are only prefetched when no usable cached path exists — the reuse case never spawns `where dsh`)
+  2. Use the user-confirmed path (from the select page) or the cached `userData/settings.json` path; if the file exists (`isFile` check, dirs rejected) → **trust it and spawn directly, skipping `dsh -V`** (saves one ~400ms node cold start per launch)
+  3. If the trusted spawn fails (exit/timeout): verify the path with `dsh -V` — still valid → normal failure page; **invalid → auto-fallback**: take the first valid candidate from `where dsh`, `await killDsh()` (clears leftovers that may still hold 3080), retry once, and cache the fallback path **only after a successful start**; no valid candidate → select page
+  4. No cached path / cached file missing → collect **all** dsh candidates from `where dsh` (deduped, prefer `.cmd/.bat/.exe`; extensionless only if nothing else) and show them on the startup page
+  5. The startup page shows a candidate list (radio buttons, click again to deselect) + a manual path input ("Browse…" picker) + a confirm button:
      - Confirm uses the input path when non-empty (must match a Windows path shape — drive/UNC prefix, no illegal chars — before validation), otherwise the selected candidate
      - The chosen path is validated with `dsh -V` (5s cap); invalid → "未检测到此路径下有 dsh" shown inline; while validating, the confirm button / radio list / input are disabled (renderer-side 6s safety timeout)
-  4. A valid path is used to start dsh; **only after a successful start** it is written back to `settings.json` (permanent cache) — a confirmed-but-failed start is not cached
+  6. A valid path is used to start dsh; **only after a successful start** it is written back to `settings.json` (permanent cache) — a confirmed-but-failed start is not cached
 
-### Process lifecycle (Q3)
-- Closing the window = quitting the app, and **kills the dsh the app started itself**
-- Kill strategy is two-layered (`killDsh`): `taskkill /T /F` on the spawned cmd/node tree, **then** (only for the app-started case) `killPortOwner` finds and kills whatever still listens on 3080 via `netstat` — this catches dsh server processes that detached from the cmd tree; `will-quit` waits for the in-flight kill task (`killTask`) before exiting
-- If a dsh is already on 3080 (reuse case, not started by the app), do NOT kill it on close
+### Process lifecycle (Q3, updated 2026-08-18: close prompts for reused dsh)
+- Closing the window = quitting the app
+  - dsh **started by the app** → closed **directly, no prompt**
+  - dsh **reused from 3080** (started externally) → **prompt first** ("关闭 dsh / 保留 dsh"): closing it runs `killPortOwner`; keeping it leaves the external dsh running
+- Kill strategy is two-layered (`killDsh(killOnClose)`): `taskkill /T /F` on the spawned cmd/node tree when app-started, **then** `killPortOwner` finds and kills whatever still listens on 3080 via `netstat` — this catches dsh server processes that detached from the cmd tree **and shuts down a reused external dsh** when the user confirms; `will-quit` waits for the in-flight kill task (`killTask`) before exiting
+- The startup/retry cleanup call (`killDsh()` without args) only cleans app-started processes — it must **not** kill an external dsh, because the port probe right after is what reuses it
 - V1 has no system tray
 
 ### Single instance (Q9)
@@ -49,9 +53,9 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 
 ### Packaging (Q4 / Q11, updated 2026-08-14: both)
 - Two artifacts; the **zip directory build** is the primary (unzip and run, instant start); the single-file portable is secondary (no extraction needed for distribution, but self-extracts ~15s on every launch)
-  - `build/dsh-desktop-0.1.2-win.zip` → unzip, then double-click `dsh-desktop.exe`
+  - `build/dsh-desktop-0.1.3-win.zip` → unzip, then double-click `dsh-desktop.exe`
   - `build/dsh-desktop.exe` (electron-builder `portable` target)
-- App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.2`
+- App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.3`
 - Icon: exe icon is `buildResources/icon.png` (black DeepSeek logo on a white rounded-corner background); the in-app top-left icons — window icon and startup-page top icon — keep `buildResources/logo.png` (transparent background; a copy lives in `renderer/` for the startup page)
 - Not signed (SmartScreen considered for V2)
 
@@ -164,7 +168,8 @@ npm run build
 - [ ] 3080 already used by dsh (manual `dsh web`): app reuses it, no second start
 - [ ] 3080 occupied by a non-dsh program: shows "3080 occupied" error + retry
 - [ ] No usable cached dsh: shows the candidate list (click again to deselect) + manual input; path-format check; validation disables controls and times out (~5s); invalid path shows "未检测到此路径下有 dsh"; valid path starts dsh and is cached after a successful start
-- [ ] Closing the window: self-started dsh is killed; reused dsh is kept
+- [ ] Cached path file exists: dsh starts directly without `dsh -V`; a broken cached path (fake/exited) auto-falls back to the first valid PATH candidate, retries, and caches it only on success
+- [ ] Closing the window: app-started dsh is killed directly; a reused dsh shows a "关闭 dsh / 保留 dsh" prompt first (保留 leaves it running)
 - [ ] Second double-click: activates the existing window
 - [ ] dsh crashes mid-run: error page + manual restart
 - [ ] dsh logs land in `userData/logs/dsh.log`

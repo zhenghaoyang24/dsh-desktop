@@ -80,6 +80,11 @@ let currentDshPath = null;
 let startMode = null;
 // dsh 页面所在独立视图（WebContentsView，位于顶栏下方）
 let dshView = null;
+// 关闭应用时是否一并关闭 3080 上的 dsh：应用自启固定 true；复用时由退出弹窗决定
+let killOnClose = false;
+// 复用场景退出询问弹窗的状态（防弹窗期间重复触发 / 关闭事件重入）
+let closePromptDone = false;
+let closePromptPending = false;
 
 const userData = () => app.getPath("userData");
 const settingsFile = () => path.join(userData(), "settings.json");
@@ -159,6 +164,15 @@ function writeSettings(obj) {
 
 function isCmd(p) {
   return /\.(cmd|bat)$/i.test(p);
+}
+
+// 快速文件存在性检查（区别于 existsSync：目录不算有效路径）
+function isFile(p) {
+  try {
+    return fs.statSync(p).isFile();
+  } catch (_) {
+    return false;
+  }
 }
 
 function runDshCmd(dshPath, args) {
@@ -259,13 +273,27 @@ function killPortOwner() {
   });
 }
 
-function killDsh() {
-  if (!dshProc) return killTask; // 已启动过清理则返回进行中的任务，让 will-quit 等待
-  const pid = dshProc.pid;
+// always=true（关闭应用时）：清掉 3080 上的 dsh，不管是否由本应用启动；
+// 默认（启动/重试清场）：只清理应用自启的进程，避免误杀可复用的外部 dsh
+function killDsh(always) {
+  if (killTask) return killTask; // 有进行中的清理任务则直接复用（供 will-quit 等待）
+  const pid = dshProc && dshProc.pid;
   const owned = dshOwned;
   dshProc = null;
   dshOwned = false;
+  if (!pid && !owned && !always) return null; // 非自启场景启动/重试不清理，保留复用机会
   killTask = new Promise((resolve) => {
+    const done = () => {
+      killTask = null;
+      resolve();
+    };
+    const finish = () => {
+      // 按端口兜底清掉 3080 上的监听进程：
+      // 自启场景收编脱离进程树的孤儿；always 关闭时连复用的外部 dsh 一并关闭
+      if (owned || always) killPortOwner().then(done);
+      else done();
+    };
+    if (!pid) return finish();
     const tk = spawn("taskkill.exe", ["/pid", String(pid), "/T", "/F"], {
       stdio: "ignore",
       windowsHide: true,
@@ -274,11 +302,6 @@ function killDsh() {
     tk.unref();
     tk.on("error", finish);
     tk.on("exit", finish);
-    function finish() {
-      // 自启场景：再按端口兜底清掉可能残留的 3080 监听进程
-      if (owned) killPortOwner().then(resolve);
-      else resolve();
-    }
   });
   return killTask;
 }
@@ -349,6 +372,10 @@ async function loadApp() {
         sandbox: true,
       },
     });
+    // 视图背景跟随主题，避免 dsh 页加载期间的短暂白屏
+    dshView.setBackgroundColor(
+      nativeTheme.shouldUseDarkColors ? "#151517" : "#f5f7fb"
+    );
     win.contentView.addChildView(dshView);
     layoutDshView();
     const wc = dshView.webContents;
@@ -399,6 +426,12 @@ function waitForPort(child, timeoutMs = START_TIMEOUT_MS) {
   });
 }
 
+function startFailureText(result) {
+  return result.reason === "timeout"
+    ? `启动超时（${START_TIMEOUT_MS / 1000} 秒）\n\n${dshOut}`
+    : `dsh 进程已退出\n\n${dshOut}`;
+}
+
 async function startFlow() {
   if (busy) return;
   busy = true;
@@ -406,6 +439,9 @@ async function startFlow() {
   removeDshView(); // 重试/重启时先撤掉旧的 dsh 视图，回到启动页
   try {
     sendStatus({ state: "detecting" });
+    // 探测端口与 PATH 候选并行（候选仅无缓存/缓存失效时需要，复用场景不浪费）
+    const cached = pendingDshPath || readSettings().dshPath || null;
+    const candidatesP = cached && isFile(cached) ? Promise.resolve([]) : findDshCandidates();
     const probe = await probePort();
     if (probe.alive) {
       if (probe.match) {
@@ -421,15 +457,15 @@ async function startFlow() {
       return;
     }
 
-    // ① 用户刚确认的路径优先；否则用缓存；都无效则列出候选让用户选择
-    let dshPath = pendingDshPath || readSettings().dshPath || null;
-    if (!(await verifyDsh(dshPath))) {
+    // 启动路径：用户刚确认的优先，否则缓存；文件存在即信任直启（跳过 dsh -V）
+    let dshPath = pendingDshPath || cached || null;
+    if (!dshPath || !isFile(dshPath)) {
       pendingDshPath = null;
-      const candidates = await findDshCandidates();
-      sendStatus({ state: "select-dsh", candidates });
+      sendStatus({ state: "select-dsh", candidates: await candidatesP });
       return;
     }
 
+    log(`[startup] trust cached dsh path, skip -V: ${dshPath}`);
     currentDshPath = dshPath;
     startMode = "app";
     sendStatus({ state: "starting", path: dshPath });
@@ -442,19 +478,51 @@ async function startFlow() {
         pendingDshPath = null;
       }
       loadApp();
-    } else if (result.reason === "conflict") {
+      return;
+    }
+    if (result.reason === "conflict") {
       pendingDshPath = null;
       sendStatus({ state: "port-conflict" });
-    } else if (result.reason === "timeout") {
-      pendingDshPath = null;
-      sendStatus({
-        state: "failed",
-        stderr: `启动超时（${START_TIMEOUT_MS / 1000} 秒）\n\n${dshOut}`,
-      });
-    } else {
-      pendingDshPath = null;
-      sendStatus({ state: "failed", stderr: "dsh 进程已退出\n\n" + dshOut });
+      return;
     }
+
+    // 直启失败（退出/超时）：先验证缓存路径是否真的失效
+    pendingDshPath = null;
+    if (await verifyDsh(dshPath)) {
+      sendStatus({ state: "failed", stderr: startFailureText(result) });
+      return;
+    }
+    // 缓存路径失效 → 自动降级：PATH 候选里取第一个验证有效的重试
+    log("[startup] cached dsh path invalid, falling back to PATH candidates");
+    const candidates = await findDshCandidates();
+    let fallback = null;
+    for (const c of candidates) {
+      if (await verifyDsh(c)) {
+        fallback = c;
+        break;
+      }
+    }
+    if (!fallback) {
+      sendStatus({ state: "select-dsh", candidates });
+      return;
+    }
+    // 清理失败尝试的残留进程（可能仍占着 3080），再用候选路径重试
+    await killDsh();
+    log(`[startup] fallback to candidate: ${fallback}`);
+    currentDshPath = fallback;
+    sendStatus({ state: "starting", path: fallback });
+    const child2 = spawnDsh(fallback);
+    const retried = await waitForPort(child2);
+    if (retried.ok) {
+      writeSettings({ dshPath: fallback }); // 启动成功才写缓存
+      loadApp();
+      return;
+    }
+    if (retried.reason === "conflict") {
+      sendStatus({ state: "port-conflict" });
+      return;
+    }
+    sendStatus({ state: "failed", stderr: startFailureText(retried) });
   } finally {
     busy = false;
   }
@@ -730,7 +798,43 @@ function createWindow(dark) {
   win.on("resize", () => layoutDshView());
   win.on("maximize", () => layoutDshView());
   win.on("unmaximize", () => layoutDshView());
-  win.on("close", () => killDsh());
+  win.on("close", (e) => {
+    // 复用场景：先弹窗询问是否一并关闭非应用启动的 dsh；应用自启则退出即回收
+    if (closePromptDone || startMode !== "reuse") {
+      if (startMode !== "reuse") killOnClose = true;
+      killDsh(killOnClose);
+      return;
+    }
+    if (closePromptPending) {
+      e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    closePromptPending = true;
+    dialog
+      .showMessageBox(win, {
+        type: "question",
+        noLink: true,
+        title: `dsh-desktop ${app.getVersion()}`,
+        message: "3080 端口上的 dsh 不是由本应用启动",
+        detail: "是否在退出时一并关闭该 dsh？选择“保留”则 dsh 继续运行。",
+        buttons: ["关闭 dsh", "保留 dsh"],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        closePromptPending = false;
+        closePromptDone = true;
+        killOnClose = response === 0;
+        win.close();
+      })
+      .catch(() => {
+        closePromptPending = false;
+        closePromptDone = true;
+        killOnClose = false;
+        win.close();
+      });
+  });
   win.on("closed", () => {
     win = null;
     dshView = null;
@@ -836,7 +940,7 @@ if (!gotLock) {
 }
 
 app.on("will-quit", (e) => {
-  const task = killDsh();
+  const task = killDsh(killOnClose);
   if (task) {
     e.preventDefault();
     task.then(() => app.exit(0));
