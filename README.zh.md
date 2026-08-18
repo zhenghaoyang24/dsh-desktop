@@ -12,8 +12,8 @@ DeepSeek Harness 桌面端，像用 Claude Code、Codex 一样轻松启动 dsh�
 
 > 本项目与 DeepSeek Harness 官方无任何关系，旨在补齐官方 Harness 桌面端的缺失，便于使用。
 
-<img width="1262" height="791" alt="image" src="https://github.com/user-attachments/assets/700aae70-6e51-4bcc-97e0-6b6527523743" />
-<img width="1260" height="790" alt="image" src="https://github.com/user-attachments/assets/1b0fac32-1e3d-496b-a843-876408aa965e" />
+<img width="1920" height="1018" alt="9022" src="https://github.com/user-attachments/assets/afe6b36c-8139-425c-9a18-ba28d819aec0" />
+<img width="1920" height="1018" alt="{621F204E-A3FF-43EF-AFB3-D5795AA78DCB}" src="https://github.com/user-attachments/assets/b80a5eb7-92ec-486e-871b-a3bb716a8217" />
 
 ## 环境要求
 
