@@ -38,6 +38,7 @@
       // —— 主进程：帮助菜单 / 退出弹窗 / 通知 / 校验错误 ——
       menuCurrentDsh: '当前 dsh',
       menuHome: 'DeepSeek Harness 官网',
+      menuCommunity: '社区插件',
       menuAbout: '关于',
       closeReuseMessage: '3080 端口上的 dsh 不是由本应用启动',
       closeReuseDetail: '是否在退出时一并关闭该 dsh？选择“保留”则 dsh 继续运行。',
@@ -86,6 +87,7 @@
       // —— 主进程：帮助菜单 / 退出弹窗 / 通知 / 校验错误 ——
       menuCurrentDsh: 'Current dsh',
       menuHome: 'DeepSeek Harness Website',
+      menuCommunity: 'Community Plugins',
       menuAbout: 'About',
       closeReuseMessage: 'The dsh on port 3080 was not started by this app',
       closeReuseDetail: 'Close this dsh when exiting? Choose “Keep” to leave it running.',

@@ -8,7 +8,7 @@ const { readSettings } = require("./settings-store");
 const { startFlow } = require("./startup");
 const { showAboutDialog, resolveHelpHover } = require("./injected/index");
 const { log, logFile } = require("./paths");
-const { PORT, HOME_URL, REPO_URL } = require("./constants");
+const { PORT, HOME_URL, COMMUNITY_URL, REPO_URL } = require("./constants");
 
 ipcMain.handle("confirm-dsh-path", async (_e, p) => {
   if (typeof p !== "string" || !p.trim()) return { ok: false, error: t("errPathEmpty") };
@@ -39,7 +39,10 @@ ipcMain.handle("open-help-menu", (_e, rect) => {
   if (!state.win || state.win.isDestroyed()) return;
   const menu = Menu.buildFromTemplate([
     { label: t("menuCurrentDsh"), click: () => showAboutDialog("dsh") },
+    { type: "separator" },
     { label: t("menuHome"), click: () => shell.openExternal(HOME_URL) },
+    { label: t("menuCommunity"), click: () => shell.openExternal(COMMUNITY_URL) },
+    { type: "separator" },
     { label: t("menuAbout"), click: () => showAboutDialog("app") },
   ]);
   const setMenuOpen = (open) => {
