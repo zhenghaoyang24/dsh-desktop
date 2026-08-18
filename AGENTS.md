@@ -53,9 +53,9 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 
 ### Packaging (Q4 / Q11, updated 2026-08-14: both)
 - Two artifacts; the **zip directory build** is the primary (unzip and run, instant start); the single-file portable is secondary (no extraction needed for distribution, but self-extracts ~15s on every launch)
-  - `build/dsh-desktop-0.1.3-win.zip` → unzip, then double-click `dsh-desktop.exe`
+  - `build/dsh-desktop-0.1.4-win.zip` → unzip, then double-click `dsh-desktop.exe`
   - `build/dsh-desktop.exe` (electron-builder `portable` target)
-- App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.3`
+- App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.4`
 - Icon: exe icon is `buildResources/icon.png` (black DeepSeek logo on a white rounded-corner background); the in-app top-left icons — window icon and startup-page top icon — keep `buildResources/logo.png` (transparent background; a copy lives in `renderer/` for the startup page)
 - Not signed (SmartScreen considered for V2)
 
@@ -84,9 +84,9 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 - **No menu bar**; **custom top bar** replaces the native title bar: `titleBarStyle: 'hidden'` + `titleBarOverlay` (Window Controls Overlay keeps native min/max/close on the right); no title-bar icon
 - The top bar (32px, injected only into the startup page via `injectChrome`) shows the **dsh logo** on the left (the rendering page's `logo.png`, black transparent; inverted to white via CSS `filter` in dark mode — it replaced the earlier `dsh-desktop` brand text), then a single **帮助** button whose label uses the **secondary/muted text color** (`--dshc-muted`: `#6b7280` light / `rgb(129,133,140)` dark) and switches to the **primary text color** (inherited bar `color`) on hover; the button is **hidden on the startup page** (default `display:none`, shown by the `help-btn-state` IPC once the dsh view is mounted, hidden again when the view is removed)
 - Clicking 帮助 pops a **native dropdown menu** (`Menu.popup` via the `open-help-menu` IPC), positioned **below the button, left-aligned** (the button's `getBoundingClientRect()` viewport rect is passed straight to `Menu.popup` — its `x`/`y` are relative to the window content area, so **no** `win.getContentBounds()`/screen-coordinate conversion is added), with three items:
-  1. **当前 dsh** — in-page overlay (`injectAboutOverlay` into the dsh view, with the startup page as fallback before the view exists): dark `rgba(0,0,0,.55)` backdrop + `backdrop-filter: blur`, bottom-bordered header (当前 dsh + close), placeholder rows ("正在获取…") filled with the **detected** dsh path/version (in-use → cache → PATH candidates, first valid wins via `get-app-info`), port, start mode (app-started vs reused), and the **应用日志** path as a clickable link (`open-log`)
+  1. **当前 dsh** — in-page overlay (`injectAboutOverlay` into the dsh view, with the startup page as fallback before the view exists): dark `rgba(0,0,0,.55)` backdrop + `backdrop-filter: blur`, bottom-bordered header (当前 dsh + close), placeholder rows ("正在获取…") filled with the **detected** dsh path/version (in-use → cache → PATH candidates, first valid wins via `get-app-info`), port, start mode (app-started vs reused)
   2. **DeepSeek Harness 官网** — opens `https://www.deepseek.com/harness/` in the default browser
-  3. **关于** — the same overlay in app mode: **dsh-desktop version** and **仓库地址** (`open-repo`)
+  3. **关于** — the same overlay in app mode: **dsh-desktop version**, **仓库地址** (`open-repo`), and the **应用日志** path as a clickable link (`open-log`, opens the logs folder/file)
 - Hover residue fix: while the menu is open the button's hover highlight is suppressed via the `.dshc-menu-open` class (toggle pushed by the `help-menu-state` IPC; `true` before `popup`, `false` in the popup `callback`, which fires when the menu closes); because the native menu swallows mouse input, the renderer's `:hover` can stay stale after close, so the popup callback also pushes a **trusted `mouseMove` input event** (`sendInputEvent`) at the real cursor position (`screen.getCursorScreenPoint()` → content-relative via `getContentBounds()`, `setTimeout(…, 0)` after close) to force Chromium to re-hit-test and drop any leftover highlight
 - Bar colors: light `#f9fafb` / dark `#1b1b1c`, with a bottom border; the Window Controls Overlay uses the same colors
 - **The dsh page lives in its own `WebContentsView`** positioned below the top bar (`y: 32`, re-laid out on resize/maximize): the dsh page is **never modified** (no CSS/DOM injection for layout), so its own modals, popups and scrollbars behave exactly like a normal browser viewport; only the `TASK_WATCHER` script and the external-link handlers are attached to the view's webContents; on dsh crash the view is removed so the startup page's crash state shows
@@ -125,8 +125,28 @@ States the startup page must cover: detecting → select dsh (candidate list + m
 ```
 dsh-desktop\
 ├── package.json
-├── main.js                  # Electron main process: window, spawn/kill dsh, 3080 probe, IPC, theme sync
+├── main.js                  # Entry: app lifecycle + module assembly (single-instance lock, whenReady, will-quit)
 ├── preload.js               # contextBridge exposing window.electronAPI
+├── src/                     # Main-process modules (plain JS, CommonJS, no build step)
+│   ├── constants.js         # PORT / APP_URL / HOME_URL / REPO_URL / START_TIMEOUT_MS / BAR_HEIGHT
+│   ├── paths.js             # Project root, userData/settings/log/dshHome paths, log(), preload/statusHtml/buildResource
+│   ├── state.js             # Shared mutable state (win / dshView / dshProc / startMode / …)
+│   ├── settings-store.js    # readSettings / writeSettings / isFile
+│   ├── status.js            # sendStatus (startup-page state push)
+│   ├── i18n.js              # UI dict + t() + readLangPreference + applyLanguage
+│   ├── theme.js             # readThemePreference + applyTheme + startSettingsWatch
+│   ├── port.js              # probePort (3080 dsh match) + killPortOwner (netstat)
+│   ├── external.js          # isExternalUrl (links to system browser)
+│   ├── dsh.js               # runDshCmd / verifyDsh / findDshCandidates / spawnDsh / killDsh / waitForPort
+│   ├── startup.js           # startFlow (boot state machine) + startFailureText
+│   ├── view.js              # dsh WebContentsView: loadApp / layoutDshView / removeDshView / injectTaskWatcher
+│   ├── window.js            # createWindow (close prompt, F12, external links)
+│   ├── ipc.js               # All ipcMain handlers (registered on require)
+│   └── injected/
+│       ├── task-watcher.js  # TASK_WATCHER (answer-complete detection script)
+│       ├── chrome.js        # CHROME_CSS + chromeScript() (custom top bar)
+│       ├── about.js         # ABOUT_OVERLAY_CSS + aboutOverlayScript() (当前 dsh / 关于 overlay)
+│       └── index.js         # injectChrome / injectAboutOverlay / showAboutDialog / setHelpBtn / resolveHelpHover
 ├── renderer/
 │   ├── status.html          # Startup page (single page, all states) + top-bar host
 │   ├── status.css
@@ -186,7 +206,7 @@ npm run build
 - [ ] dsh crashes mid-run: error page + manual restart
 - [ ] dsh logs land in `userData/logs/dsh.log`
 - [ ] F12 toggles DevTools
-- [ ] Custom top bar (32px) shows the **dsh logo** (black; white in dark mode) + a single 帮助 button (secondary/muted label color, `#6b7280` light / `rgb(129,133,140)` dark, switching to the **primary text color** on hover), **hidden on the startup page** and shown after the dsh view loads; clicking it pops a native menu **below the button, left-aligned** with 当前 dsh / DeepSeek Harness 官网 / 关于; 当前 dsh shows the in-page overlay (dark backdrop + blur) with detected dsh path/version, start mode, clickable 应用日志 path; 官网 opens the site in the default browser; 关于 shows dsh-desktop version + repo address; after the menu closes the 帮助 button shows **no leftover hover highlight**
+- [ ] Custom top bar (32px) shows the **dsh logo** (black; white in dark mode) + a single 帮助 button (secondary/muted label color, `#6b7280` light / `rgb(129,133,140)` dark, switching to the **primary text color** on hover), **hidden on the startup page** and shown after the dsh view loads; clicking it pops a native menu **below the button, left-aligned** with 当前 dsh / DeepSeek Harness 官网 / 关于; 当前 dsh shows the in-page overlay (dark backdrop + blur) with detected dsh path/version, start mode; 官网 opens the site in the default browser; 关于 shows dsh-desktop version + repo address + clickable 应用日志 path; after the menu closes the 帮助 button shows **no leftover hover highlight**
 - [ ] dsh page renders unmodified in its own view below the top bar: its modals/scrollbars behave normally and nothing is covered
 - [ ] Clicking an external link in the dsh page opens the system default browser, never the app window
 - [ ] Switching light/dark/system in the harness UI updates the title bar theme live
