@@ -376,8 +376,6 @@ async function loadApp() {
     dshView.setBackgroundColor(
       nativeTheme.shouldUseDarkColors ? "#151517" : "#f5f7fb"
     );
-    win.contentView.addChildView(dshView);
-    layoutDshView();
     const wc = dshView.webContents;
     wc.on("did-finish-load", () => {
       injectTaskWatcher(wc);
@@ -396,6 +394,9 @@ async function loadApp() {
       }
     });
     await wc.loadURL(APP_URL);
+    // 先加载完成后才挂载到窗口：加载期间用户停留在启动页，避免空白间隔
+    win.contentView.addChildView(dshView);
+    layoutDshView();
   } catch (err) {
     webReady = false;
     log("[loadURL error] " + err.message);
