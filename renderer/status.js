@@ -1,6 +1,63 @@
 const theme = new URLSearchParams(location.search).get('theme');
 if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
 
+// 界面语言：跟随主进程传入的 ?lang=（仅 zh 用中文；其余默认英文）
+const lang = new URLSearchParams(location.search).get('lang') === 'zh' ? 'zh' : 'en';
+const T = {
+  zh: {
+    detecting: '正在检测环境…',
+    selectHint: '未找到可用的 dsh 缓存，请选择下方找到的 dsh，或手动输入路径：',
+    pathPlaceholder: '例如 C:\\Users\\me\\AppData\\Roaming\\npm\\dsh.cmd',
+    browse: '浏览…',
+    confirm: '确定',
+    starting: '正在启动 dsh web…',
+    portConflictTitle: '端口 3080 被其他程序占用',
+    portConflictHint1: '该端口上不是 dsh 服务，为避免加载陌生页面已停止。',
+    portConflictHint2: '请释放端口后重试。',
+    retry: '重试',
+    failedTitle: 'dsh 启动失败',
+    crashedTitle: 'dsh 运行中崩溃',
+    restart: '重启',
+    noCandidates: '未在 PATH 中找到 dsh，请手动输入路径',
+    pathFormatErr: '路径格式不正确，请输入形如 C:\\path\\to\\dsh.cmd 的路径',
+    selectOrInput: '请选择或输入 dsh 路径',
+    validating: '校验中…',
+    timeoutErr: (n) => `校验超时（${n} 秒），请重试`,
+    errNoDsh: '未检测到此路径下有 dsh',
+  },
+  en: {
+    detecting: 'Detecting environment…',
+    selectHint: 'No usable dsh cache was found. Pick a detected dsh below, or enter a path manually:',
+    pathPlaceholder: 'e.g. C:\\Users\\me\\AppData\\Roaming\\npm\\dsh.cmd',
+    browse: 'Browse…',
+    confirm: 'Confirm',
+    starting: 'Starting dsh web…',
+    portConflictTitle: 'Port 3080 is occupied by another program',
+    portConflictHint1: 'The service on this port is not dsh, so the app stopped to avoid loading an unknown page.',
+    portConflictHint2: 'Free the port and try again.',
+    retry: 'Retry',
+    failedTitle: 'dsh failed to start',
+    crashedTitle: 'dsh crashed while running',
+    restart: 'Restart',
+    noCandidates: 'No dsh found in PATH; enter a path manually',
+    pathFormatErr: 'Invalid path format; enter something like C:\\path\\to\\dsh.cmd',
+    selectOrInput: 'Select or enter a dsh path',
+    validating: 'Validating…',
+    timeoutErr: (n) => `Validation timed out (${n}s); try again`,
+    errNoDsh: 'No dsh found at this path',
+  },
+};
+const t = (key, ...args) => {
+  const s = (T[lang] && T[lang][key]) ?? T.zh[key];
+  return typeof s === 'function' ? s(...args) : s;
+};
+function applyI18n() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-placeholder]')) el.placeholder = t(el.dataset.i18nPlaceholder);
+}
+applyI18n();
+
 const api = window.electronAPI;
 const $ = (id) => document.getElementById(id);
 
@@ -51,7 +108,7 @@ function renderCandidates(candidates) {
   if (!candidates || candidates.length === 0) {
     const p = document.createElement('p');
     p.className = 'hint';
-    p.textContent = '未在 PATH 中找到 dsh，请手动输入路径';
+    p.textContent = t('noCandidates');
     list.appendChild(p);
     return;
   }
@@ -126,7 +183,7 @@ $('confirm-btn').addEventListener('click', async () => {
   let path = null;
   if (input) {
     if (!looksLikePath(input)) {
-      fb.textContent = '路径格式不正确，请输入形如 C:\\path\\to\\dsh.cmd 的路径';
+      fb.textContent = t('pathFormatErr');
       fb.className = 'feedback err';
       return;
     }
@@ -134,25 +191,25 @@ $('confirm-btn').addEventListener('click', async () => {
   } else if (selectedPath) {
     path = selectedPath;
   } else {
-    fb.textContent = '请选择或输入 dsh 路径';
+    fb.textContent = t('selectOrInput');
     fb.className = 'feedback err';
     return;
   }
-  fb.textContent = '校验中…';
+  fb.textContent = t('validating');
   fb.className = 'feedback';
   setBusy(true);
   let r;
   try {
     r = await withTimeout(api.confirmDshPath(path), VALIDATE_TIMEOUT_MS);
   } catch (_) {
-    fb.textContent = `校验超时（${VALIDATE_TIMEOUT_MS / 1000} 秒），请重试`;
+    fb.textContent = t('timeoutErr', VALIDATE_TIMEOUT_MS / 1000);
     fb.className = 'feedback err';
     return;
   } finally {
     setBusy(false);
   }
   if (!r.ok) {
-    fb.textContent = r.error || '未检测到此路径下有 dsh';
+    fb.textContent = r.error || t('errNoDsh');
     fb.className = 'feedback err';
     return;
   }

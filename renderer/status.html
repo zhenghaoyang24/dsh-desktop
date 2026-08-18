@@ -19,50 +19,50 @@
 
     <section id="view-detecting" class="view">
       <div class="spinner"></div>
-      <p class="msg">正在检测环境…</p>
+      <p class="msg" data-i18n="detecting">正在检测环境…</p>
     </section>
 
     <section id="view-select-dsh" class="view" hidden>
-      <p class="hint">未找到可用的 dsh 缓存，请选择下方找到的 dsh，或手动输入路径：</p>
+      <p class="hint" data-i18n="selectHint">未找到可用的 dsh 缓存，请选择下方找到的 dsh，或手动输入路径：</p>
       <div id="candidate-list" class="candidate-list"></div>
       <div class="path-row">
-        <input id="dsh-path" type="text" placeholder="例如 C:\Users\me\AppData\Roaming\npm\dsh.cmd" spellcheck="false">
-        <button id="browse-btn" class="btn">浏览…</button>
+        <input id="dsh-path" type="text" data-i18n-placeholder="pathPlaceholder" placeholder="例如 C:\Users\me\AppData\Roaming\npm\dsh.cmd" spellcheck="false">
+        <button id="browse-btn" class="btn" data-i18n="browse">浏览…</button>
       </div>
       <p id="path-feedback" class="feedback"></p>
       <div class="actions">
-        <button id="confirm-btn" class="btn primary">确定</button>
+        <button id="confirm-btn" class="btn primary" data-i18n="confirm">确定</button>
       </div>
     </section>
 
     <section id="view-starting" class="view" hidden>
       <div class="spinner"></div>
-      <p class="msg">正在启动 dsh web…</p>
+      <p class="msg" data-i18n="starting">正在启动 dsh web…</p>
       <p class="sub" id="starting-sub"></p>
     </section>
 
     <section id="view-port-conflict" class="view" hidden>
-      <p class="msg error-title">端口 3080 被其他程序占用</p>
-      <p class="hint">该端口上不是 dsh 服务，为避免加载陌生页面已停止。</p>
-      <p class="hint">请释放端口后重试。</p>
+      <p class="msg error-title" data-i18n="portConflictTitle">端口 3080 被其他程序占用</p>
+      <p class="hint" data-i18n="portConflictHint1">该端口上不是 dsh 服务，为避免加载陌生页面已停止。</p>
+      <p class="hint" data-i18n="portConflictHint2">请释放端口后重试。</p>
       <div class="actions">
-        <button id="retry-btn" class="btn primary">重试</button>
+        <button id="retry-btn" class="btn primary" data-i18n="retry">重试</button>
       </div>
     </section>
 
     <section id="view-failed" class="view" hidden>
-      <p class="msg error-title">dsh 启动失败</p>
+      <p class="msg error-title" data-i18n="failedTitle">dsh 启动失败</p>
       <pre id="failed-log" class="log"></pre>
       <div class="actions">
-        <button id="retry-btn-2" class="btn primary">重试</button>
+        <button id="retry-btn-2" class="btn primary" data-i18n="retry">重试</button>
       </div>
     </section>
 
     <section id="view-crashed" class="view" hidden>
-      <p class="msg error-title">dsh 运行中崩溃</p>
+      <p class="msg error-title" data-i18n="crashedTitle">dsh 运行中崩溃</p>
       <pre id="crashed-log" class="log"></pre>
       <div class="actions">
-        <button id="restart-btn" class="btn primary">重启</button>
+        <button id="restart-btn" class="btn primary" data-i18n="restart">重启</button>
       </div>
     </section>
   </main>

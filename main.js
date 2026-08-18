@@ -5,6 +5,7 @@ const {
   ipcMain,
   dialog,
   shell,
+  screen,
   nativeTheme,
   Notification,
   WebContentsView,
@@ -78,6 +79,8 @@ let pendingDshPath = null;
 let currentDshPath = null;
 // dsh 启动方式：'app' = 应用自启；'reuse' = 复用已有实例
 let startMode = null;
+// 界面语言：'zh' | 'en'（跟随 dsh web 的 locale.preference；缺省/其他语言一律 'en'）
+let currentLang = "en";
 // dsh 页面所在独立视图（WebContentsView，位于顶栏下方）
 let dshView = null;
 // 关闭应用时是否一并关闭 3080 上的 dsh：应用自启固定 true；复用时由退出弹窗决定
@@ -121,6 +124,24 @@ function readThemePreference() {
   return "system";
 }
 
+// 读取 dsh web 的语言偏好（dsh 持久化在 $DSH_HOME/settings.yaml 的 locale.preference）。
+// 只有 zh 用中文；缺省/未设置/其他语言（含 en 之外的任何值）一律回退英文
+function readLangPreference() {
+  const home = process.env.DSH_HOME || path.join(os.homedir(), ".dsh");
+  try {
+    const lines = fs.readFileSync(path.join(home, "settings.yaml"), "utf8").split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      if (!/^locale:\s*$/.test(lines[i])) continue;
+      for (let j = i + 1; j < lines.length; j++) {
+        if (/^\S/.test(lines[j])) break;
+        const m = lines[j].match(/^\s+preference:\s*"?([\w-]+)"?\s*$/);
+        if (m) return /^zh(\b|-)/i.test(m[1]) ? "zh" : "en";
+      }
+    }
+  } catch (_) {}
+  return "en";
+}
+
 function applyTheme() {
   const pref = readThemePreference();
   if (pref === "dark") nativeTheme.themeSource = "dark";
@@ -145,14 +166,59 @@ function applyTheme() {
   return dark;
 }
 
-function startThemeWatch() {
+// 应用自身界面的文案字典（主进程侧：菜单 / 退出弹窗 / 通知 / 校验错误等）。
+// 注入到页面的顶栏与「关于」浮层各自带一份字典（见 chromeScript / aboutOverlayScript）
+const UI = {
+  zh: {
+    menuCurrentDsh: "当前 dsh",
+    menuHome: "DeepSeek Harness 官网",
+    menuAbout: "关于",
+    closeReuseMessage: "3080 端口上的 dsh 不是由本应用启动",
+    closeReuseDetail: "是否在退出时一并关闭该 dsh？选择“保留”则 dsh 继续运行。",
+    closeDsh: "关闭 dsh",
+    keepDsh: "保留 dsh",
+    toastBody: "回答已完成",
+    errPathEmpty: "路径不能为空",
+    errNoDsh: "未检测到此路径下有 dsh",
+  },
+  en: {
+    menuCurrentDsh: "Current dsh",
+    menuHome: "DeepSeek Harness Website",
+    menuAbout: "About",
+    closeReuseMessage: "The dsh on port 3080 was not started by this app",
+    closeReuseDetail: "Close this dsh when exiting? Choose “Keep” to leave it running.",
+    closeDsh: "Close dsh",
+    keepDsh: "Keep dsh",
+    toastBody: "Answer complete",
+    errPathEmpty: "Path must not be empty",
+    errNoDsh: "No dsh found at this path",
+  },
+};
+const t = (k) => (UI[currentLang] && UI[currentLang][k]) ?? UI.zh[k];
+
+// 跟随 dsh web 的语言切换：读取 locale.preference 并推送给各页面（顶栏 / 关于浮层）
+function applyLanguage() {
+  currentLang = readLangPreference();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send("chrome-language", currentLang);
+    if (dshView && !dshView.webContents.isDestroyed()) {
+      dshView.webContents.send("chrome-language", currentLang);
+    }
+  }
+  return currentLang;
+}
+
+function startSettingsWatch() {
   try {
     const home = process.env.DSH_HOME || path.join(os.homedir(), ".dsh");
     let timer = null;
     fs.watch(home, { persistent: false }, (_ev, fname) => {
       if (fname !== "settings.yaml") return;
       clearTimeout(timer);
-      timer = setTimeout(() => applyTheme(), 300);
+      timer = setTimeout(() => {
+        applyTheme();
+        applyLanguage();
+      }, 300);
     });
   } catch (_) {}
 }
@@ -358,6 +424,7 @@ function removeDshView() {
     dshView.webContents.destroy();
   } catch (_) {}
   dshView = null;
+  setHelpBtn(false); // 回到启动页，隐藏「帮助」按钮
 }
 
 async function loadApp() {
@@ -373,13 +440,11 @@ async function loadApp() {
       },
     });
     // 视图背景跟随主题，避免 dsh 页加载期间的短暂白屏
-    dshView.setBackgroundColor(
-      nativeTheme.shouldUseDarkColors ? "#151517" : "#f5f7fb"
-    );
+    dshView.setBackgroundColor(nativeTheme.shouldUseDarkColors ? "#151517" : "#f5f7fb");
     const wc = dshView.webContents;
     wc.on("did-finish-load", () => {
       injectTaskWatcher(wc);
-      injectAboutOverlay(wc, nativeTheme.shouldUseDarkColors);
+      injectAboutOverlay(wc, nativeTheme.shouldUseDarkColors, currentLang);
     });
     wc.on("page-title-updated", (e) => e.preventDefault());
     // 外部链接转交系统默认浏览器
@@ -397,6 +462,7 @@ async function loadApp() {
     // 先加载完成后才挂载到窗口：加载期间用户停留在启动页，避免空白间隔
     win.contentView.addChildView(dshView);
     layoutDshView();
+    setHelpBtn(true); // 进入主界面，顶栏显示「帮助」按钮
   } catch (err) {
     webReady = false;
     log("[loadURL error] " + err.message);
@@ -542,22 +608,32 @@ const CHROME_CSS = `
   user-select: none;
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
 }
-html[data-dshc-theme="dark"] .dshc-bar { background: #1b1b1c; color: rgb(249, 250, 251); --dshc-border: rgba(255, 255, 255, 0.08); }
-html[data-dshc-theme="light"] .dshc-bar { background: #f9fafb; color: #1f2329; --dshc-border: #e5e7eb; }
-.dshc-brand { font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+html[data-dshc-theme="dark"] .dshc-bar { background: #1b1b1c; color: rgb(249, 250, 251); --dshc-border: rgba(255, 255, 255, 0.08); --dshc-muted: rgb(129, 133, 140); }
+html[data-dshc-theme="light"] .dshc-bar { background: #f9fafb; color: #1f2329; --dshc-border: #e5e7eb; --dshc-muted: #6b7280; }
+/* 顶栏左侧 logo：复用渲染页 logo.png（黑色透明底），暗色主题下 filter: invert 转为白色 */
+.dshc-brand { height: 16px; width: auto; flex-shrink: 0; -webkit-user-drag: none; }
+html[data-dshc-theme="dark"] .dshc-brand { filter: invert(1); }
 .dshc-btn {
   -webkit-app-region: no-drag;
   border: 1px solid transparent; border-radius: 6px;
   padding: 3px 10px; font-size: 12px; cursor: pointer;
-  background: transparent; color: inherit;
+  background: transparent; color: var(--dshc-muted);
 }
-.dshc-btn:hover { background: rgba(128, 128, 128, 0.18); }
+/* hover 时按钮文字回归主要文本色（继承顶栏的 color，即主文字色） */
+.dshc-btn:hover { background: rgba(128, 128, 128, 0.18); color: inherit; }
+/* 下拉菜单打开期间取消按钮 hover（原生菜单接管鼠标后页面收不到 mouseleave，会残留高亮） */
+.dshc-btn.dshc-menu-open, .dshc-btn.dshc-menu-open:hover { background: transparent; color: var(--dshc-muted); }
 `;
 
-function chromeScript(dark) {
+function chromeScript(dark, lang) {
   return `(() => {
   if (window.__dshChrome) return;
   window.__dshChrome = true;
+  var cur = ${JSON.stringify(lang === "zh" ? "zh" : "en")};
+  function applyLang(l) {
+    cur = l === 'zh' ? 'zh' : 'en';
+    btnHelp.textContent = cur === 'zh' ? '帮助' : 'Help';
+  }
   function mk(tag, cls, text) {
     var el = document.createElement(tag);
     if (cls) el.className = cls;
@@ -568,17 +644,42 @@ function chromeScript(dark) {
     document.documentElement.setAttribute('data-dshc-theme', d ? 'dark' : 'light');
   }
   var bar = mk('div', 'dshc-bar');
-  bar.appendChild(mk('div', 'dshc-brand', 'dsh-desktop'));
-  var btnAbout = mk('button', 'dshc-btn', '关于');
-  var btnHome = mk('button', 'dshc-btn', '官网');
-  bar.appendChild(btnAbout);
-  bar.appendChild(btnHome);
+  // 左侧 logo（黑色透明底，暗色主题下由 CSS 反转成白色）替代原来的品牌文字
+  var brand = document.createElement('img');
+  brand.className = 'dshc-brand';
+  brand.src = 'logo.png';
+  brand.alt = 'dsh-desktop';
+  bar.appendChild(brand);
+  // 「帮助」下拉按钮：启动页面隐藏，进入主界面（dsh 视图挂载）后由主进程显示；文字随界面语言
+  var btnHelp = mk('button', 'dshc-btn');
+  applyLang(cur);
+  btnHelp.style.display = 'none';
+  bar.appendChild(btnHelp);
   document.documentElement.appendChild(bar);
   var api = window.electronAPI;
-  btnAbout.addEventListener('click', function () { if (api && api.openAbout) api.openAbout(); });
-  btnHome.addEventListener('click', function () { if (api && api.openHomepage) api.openHomepage(); });
+  window.__dshcSetHelp = function (visible) {
+    btnHelp.style.display = visible ? '' : 'none';
+  };
+  window.__dshcSetHelpMenuOpen = function (open) {
+    btnHelp.classList.toggle('dshc-menu-open', !!open);
+  };
+  btnHelp.addEventListener('click', function () {
+    if (!api || !api.openHelpMenu) return;
+    var r = btnHelp.getBoundingClientRect(); // 视口坐标：Menu.popup 的 x/y 以窗口内容区为原点，与其一致，直接传递
+    btnHelp.classList.add('dshc-menu-open'); // 先取消 hover，等主进程确认菜单已打开
+    api.openHelpMenu({ x: r.left, y: r.bottom });
+  });
+  if (api && api.onHelpMenuState) {
+    api.onHelpMenuState(window.__dshcSetHelpMenuOpen);
+  }
+  if (api && api.onHelpBtnState) {
+    api.onHelpBtnState(window.__dshcSetHelp);
+  }
   if (api && api.onChromeTheme) {
     api.onChromeTheme(applyTheme);
+  }
+  if (api && api.onChromeLanguage) {
+    api.onChromeLanguage(applyLang);
   }
   applyTheme(${dark ? "true" : "false"});
 })();`;
@@ -595,6 +696,7 @@ const ABOUT_OVERLAY_CSS = `
   z-index: 2147483647;
 }
 .dsho-overlay[hidden] { display: none !important; }
+.dsho-panel[hidden] { display: none; }
 .dsho-box {
   position: relative; width: 440px; max-width: 90vw;
   background: #ffffff; color: #1f2329;
@@ -648,10 +750,30 @@ html[data-dshc-theme="dark"] .dsho-box {
 }
 `;
 
-function aboutOverlayScript(dark) {
+function aboutOverlayScript(dark, lang) {
   return `(() => {
   if (window.__dshAbout) return;
   var api = window.electronAPI;
+  var LANG = {
+    zh: {
+      currentDsh: '当前 dsh', about: '关于', fetching: '正在获取…',
+      dshPath: 'dsh 路径：', dshVersion: 'dsh 版本：', port: '启动端口：',
+      mode: '启动方式：', modeApp: '应用启动', modeReuse: '复用已有实例',
+      log: '应用日志：', notDetected: '（未检测到）',
+      version: '版本：dsh-desktop v', repo: '仓库：',
+    },
+    en: {
+      currentDsh: 'Current dsh', about: 'About', fetching: 'Fetching…',
+      dshPath: 'dsh path: ', dshVersion: 'dsh version: ', port: 'port: ',
+      mode: 'start mode: ', modeApp: 'started by app', modeReuse: 'reused existing instance',
+      log: 'app log: ', notDetected: '(not detected)',
+      version: 'version: dsh-desktop v', repo: 'repository: ',
+    },
+  };
+  var cur = ${JSON.stringify(lang === "zh" ? "zh" : "en")};
+  var showType = 'dsh';
+  var info = null;
+  function t(key) { return (LANG[cur] && LANG[cur][key]) || LANG['zh'][key]; }
   function mk(tag, cls, text) {
     var el = document.createElement(tag);
     if (cls) el.className = cls;
@@ -662,67 +784,106 @@ function aboutOverlayScript(dark) {
   overlay.hidden = true;
   var box = mk('div', 'dsho-box');
   var head = mk('div', 'dsho-head');
-  head.appendChild(mk('span', 'dsho-title', '关于'));
+  var titleEl = mk('span', 'dsho-title', t('currentDsh'));
   var closeBtn = mk('button', 'dsho-close', '\u00d7');
+  head.appendChild(titleEl);
   head.appendChild(closeBtn);
   box.appendChild(head);
   var body = mk('div', 'dsho-body');
-  var pathRow = mk('div', 'dsho-row', 'dsh 路径：正在获取…');
-  var verRow = mk('div', 'dsho-row', 'dsh 版本：正在获取…');
-  var portRow = mk('div', 'dsho-row', '启动端口：正在获取…');
-  var modeRow = mk('div', 'dsho-row', '启动方式：正在获取…');
+  // 当前 dsh 面板：路径 / 版本 / 端口 / 启动方式 / 应用日志
+  var dshPanel = mk('div', 'dsho-panel');
+  var pathRow = mk('div', 'dsho-row', t('fetching'));
+  var verRow = mk('div', 'dsho-row', t('fetching'));
+  var portRow = mk('div', 'dsho-row', t('fetching'));
+  var modeRow = mk('div', 'dsho-row', t('fetching'));
   var logRow = mk('div', 'dsho-row dsho-log');
-  logRow.appendChild(mk('span', '', '应用日志：'));
+  var logLabel = mk('span', '', t('log'));
+  logRow.appendChild(logLabel);
   var logPathSpan = mk('span', 'dsho-log-path', '…');
   logPathSpan.addEventListener('click', function () { if (api && api.openLog) api.openLog(); });
   logRow.appendChild(logPathSpan);
-  body.appendChild(pathRow);
-  body.appendChild(verRow);
-  body.appendChild(portRow);
-  body.appendChild(modeRow);
-  body.appendChild(logRow);
-  var footer = mk('div', 'dsho-footer');
-  var repoLink = mk('a', 'dsho-link', 'dsh-desktop');
+  dshPanel.appendChild(pathRow);
+  dshPanel.appendChild(verRow);
+  dshPanel.appendChild(portRow);
+  dshPanel.appendChild(modeRow);
+  dshPanel.appendChild(logRow);
+  // 关于面板：软件版本 / 仓库地址
+  var appPanel = mk('div', 'dsho-panel');
+  appPanel.hidden = true;
+  var appVerRow = mk('div', 'dsho-row', '');
+  var appRepoRow = mk('div', 'dsho-row');
+  var repoLabel = mk('span', '', t('repo'));
+  appRepoRow.appendChild(repoLabel);
+  var repoLink = mk('a', 'dsho-link', '${REPO_URL}');
   repoLink.href = '#';
   repoLink.addEventListener('click', function (e) {
     e.preventDefault();
     if (api && api.openRepo) api.openRepo();
   });
-  var verSpan = mk('span', 'dsho-ver', ' v…');
-  footer.appendChild(repoLink);
-  footer.appendChild(verSpan);
+  appRepoRow.appendChild(repoLink);
+  appPanel.appendChild(appVerRow);
+  appPanel.appendChild(appRepoRow);
+  body.appendChild(dshPanel);
+  body.appendChild(appPanel);
   box.appendChild(body);
-  box.appendChild(footer);
   overlay.appendChild(box);
   document.documentElement.appendChild(overlay);
   function setTheme(d) {
     document.documentElement.setAttribute('data-dshc-theme', d ? 'dark' : 'light');
   }
+  // 按当前语言 + 已获取的信息重绘全部文案（语言切换 / 数据刷新共用）
+  function render() {
+    titleEl.textContent = showType === 'app' ? t('about') : t('currentDsh');
+    logLabel.textContent = t('log');
+    repoLabel.textContent = t('repo');
+    if (!info) return;
+    pathRow.textContent = t('dshPath') + (info.dshPath ? info.dshPath : t('notDetected'));
+    verRow.textContent = t('dshVersion') + (info.dshVersion ? info.dshVersion : t('notDetected'));
+    portRow.textContent = t('port') + (info.port ? info.port : '-');
+    modeRow.textContent = t('mode') + (info.startMode === 'app' ? t('modeApp') : t('modeReuse'));
+    logPathSpan.textContent = info.logPath ? info.logPath : '';
+    appVerRow.textContent = t('version') + (info.version ? info.version : '-');
+  }
+  function applyLang(l) {
+    cur = l === 'zh' ? 'zh' : 'en';
+    render();
+  }
   function refresh() {
     if (!api || !api.getAppInfo) return;
-    api.getAppInfo().then(function (info) {
-      pathRow.textContent = 'dsh 路径：' + (info && info.dshPath ? info.dshPath : '（未检测到）');
-      verRow.textContent = 'dsh 版本：' + (info && info.dshVersion ? info.dshVersion : '（未检测到）');
-      portRow.textContent = '启动端口：' + (info ? info.port : '-');
-      modeRow.textContent = '启动方式：' + (info && info.startMode === 'app' ? '应用启动' : '复用已有实例');
-      logPathSpan.textContent = info && info.logPath ? info.logPath : '';
-      verSpan.textContent = ' v' + (info && info.version ? info.version : '-');
+    api.getAppInfo().then(function (res) {
+      info = res;
+      render();
     }).catch(function () {});
   }
-  function show() { refresh(); overlay.hidden = false; }
+  function show(type) {
+    showType = type === 'app' ? 'app' : 'dsh';
+    refresh();
+    if (showType === 'app') {
+      dshPanel.hidden = true;
+      appPanel.hidden = false;
+    } else {
+      dshPanel.hidden = false;
+      appPanel.hidden = true;
+    }
+    render();
+    overlay.hidden = false;
+  }
   function hide() { overlay.hidden = true; }
   closeBtn.addEventListener('click', hide);
   overlay.addEventListener('click', function (e) { if (e.target === overlay) hide(); });
   if (api && api.onChromeTheme) api.onChromeTheme(setTheme);
+  if (api && api.onChromeLanguage) api.onChromeLanguage(applyLang);
   setTheme(${dark ? "true" : "false"});
   window.__dshAbout = { show: show };
 })();`;
 }
 
-function injectAboutOverlay(wc, dark) {
+function injectAboutOverlay(wc, dark, lang) {
   if (!wc || wc.isDestroyed()) return;
   wc.insertCSS(ABOUT_OVERLAY_CSS).catch((err) => log("[about-css] " + err.message));
-  wc.executeJavaScript(aboutOverlayScript(dark)).catch((err) => log("[about] " + err.message));
+  wc.executeJavaScript(aboutOverlayScript(dark, lang)).catch((err) =>
+    log("[about] " + err.message),
+  );
 }
 
 function injectChrome(dark) {
@@ -730,9 +891,10 @@ function injectChrome(dark) {
   if (!win.webContents.getURL().startsWith("file:")) return; // 只注入我们自己的启动页
   win.webContents.insertCSS(CHROME_CSS).catch((err) => log("[chrome-css] " + err.message));
   win.webContents
-    .executeJavaScript(chromeScript(dark))
+    .executeJavaScript(chromeScript(dark, currentLang))
+    .then(() => setHelpBtn(dshView != null)) // 脚本执行完监听器已就绪，补发按钮可见性（防止竞态丢失）
     .catch((err) => log("[chrome] " + err.message));
-  injectAboutOverlay(win.webContents, dark); // 启动页兜底（dsh 视图未创建时）
+  injectAboutOverlay(win.webContents, dark, currentLang); // 启动页兜底（dsh 视图未创建时）
 }
 
 // 外部链接（非本应用 3080 页面）一律交给系统默认浏览器打开
@@ -782,7 +944,7 @@ function createWindow(dark) {
     }
   });
   win.loadFile(path.join(__dirname, "renderer", "status.html"), {
-    query: { theme: dark ? "dark" : "light" },
+    query: { theme: dark ? "dark" : "light", lang: currentLang },
   });
   win.webContents.on("did-finish-load", () => {
     if (lastStatus) win.webContents.send("status", lastStatus);
@@ -817,9 +979,9 @@ function createWindow(dark) {
         type: "question",
         noLink: true,
         title: `dsh-desktop ${app.getVersion()}`,
-        message: "3080 端口上的 dsh 不是由本应用启动",
-        detail: "是否在退出时一并关闭该 dsh？选择“保留”则 dsh 继续运行。",
-        buttons: ["关闭 dsh", "保留 dsh"],
+        message: t("closeReuseMessage"),
+        detail: t("closeReuseDetail"),
+        buttons: [t("closeDsh"), t("keepDsh")],
         defaultId: 0,
         cancelId: 1,
       })
@@ -843,10 +1005,10 @@ function createWindow(dark) {
 }
 
 ipcMain.handle("confirm-dsh-path", async (_e, p) => {
-  if (typeof p !== "string" || !p.trim()) return { ok: false, error: "路径不能为空" };
+  if (typeof p !== "string" || !p.trim()) return { ok: false, error: t("errPathEmpty") };
   p = p.trim();
   const version = await verifyDsh(p);
-  if (!version) return { ok: false, error: "未检测到此路径下有 dsh" };
+  if (!version) return { ok: false, error: t("errNoDsh") };
   pendingDshPath = p; // 暂存，启动成功后才写入缓存
   return { ok: true, version };
 });
@@ -861,13 +1023,69 @@ ipcMain.handle("browse-dsh-path", async () => {
 
 ipcMain.handle("retry", () => startFlow());
 ipcMain.handle("restart-dsh", () => startFlow());
-ipcMain.handle("open-homepage", () => shell.openExternal(HOME_URL));
 ipcMain.handle("open-repo", () => shell.openExternal(REPO_URL));
-ipcMain.handle("open-about", () => {
-  // 弹在 dsh 视图之上；视图未创建（启动阶段）时用启动页兜底
+// 关于浮层：type = 'dsh'（当前 dsh 信息）| 'app'（软件版本 + 仓库地址）
+// 弹在 dsh 视图之上；视图未创建（启动阶段）时用启动页兜底
+function showAboutDialog(type) {
+  if (!win || win.isDestroyed()) return;
   const target =
     dshView && !dshView.webContents.isDestroyed() ? dshView.webContents : win.webContents;
-  target.executeJavaScript("window.__dshAbout && window.__dshAbout.show()").catch(() => {});
+  target
+    .executeJavaScript(`window.__dshAbout && window.__dshAbout.show(${JSON.stringify(type)})`)
+    .catch(() => {});
+}
+// 顶栏「帮助」按钮可见性：启动页隐藏，dsh 视图挂载（进入主界面）后显示
+function setHelpBtn(visible) {
+  if (win && !win.isDestroyed()) win.webContents.send("help-btn-state", !!visible);
+}
+// 原生菜单弹出期间会吞掉鼠标事件，渲染进程的 :hover 停在旧位置（点击时的按钮上），
+// 菜单关闭后不会收到对应的 mouseleave，残留高亮。这里主动推送一次「可信」mouseMove：
+// 主进程的 sendInputEvent 走真实输入管线，Chromium 会按真实光标位置重新命中测试并刷新 hover
+function resolveHelpHover() {
+  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
+  try {
+    const pt = screen.getCursorScreenPoint(); // 屏幕坐标(DIP)
+    const cb = win.getContentBounds(); // 内容区原点 → 换算成 webContents 视口坐标
+    win.webContents.sendInputEvent({
+      type: "mouseMove",
+      x: Math.round(pt.x - cb.x),
+      y: Math.round(pt.y - cb.y),
+    });
+  } catch (_) {}
+}
+// 「帮助」下拉菜单：点击后出现在按钮正下方、左对齐。
+// Menu.popup 的 x/y 相对窗口内容区（与渲染进程 getBoundingClientRect 的视口坐标同原点），
+// 直接传递即可，无需叠加 getContentBounds()（那会再次加上窗口屏幕原点导致位置错位）。
+// 菜单项直接在主进程执行；菜单打开期间用 help-menu-state 抑制按钮 hover，关闭（callback）时复位
+ipcMain.handle("open-help-menu", (_e, rect) => {
+  if (!win || win.isDestroyed()) return;
+  const menu = Menu.buildFromTemplate([
+    { label: t("menuCurrentDsh"), click: () => showAboutDialog("dsh") },
+    { label: t("menuHome"), click: () => shell.openExternal(HOME_URL) },
+    { label: t("menuAbout"), click: () => showAboutDialog("app") },
+  ]);
+  const setMenuOpen = (open) => {
+    if (win && !win.isDestroyed()) win.webContents.send("help-menu-state", open);
+  };
+  setMenuOpen(true);
+  try {
+    // x/y 相对窗口内容区（与按钮的视口坐标一致）；不要叠加 win.getContentBounds()，否则菜单会错位
+    const x = rect && Number.isFinite(rect.x) ? Math.round(rect.x) : undefined;
+    const y = rect && Number.isFinite(rect.y) ? Math.round(rect.y) : undefined;
+    menu.popup({
+      window: win,
+      x,
+      y,
+      callback: () => {
+        setMenuOpen(false);
+        // 菜单刚关闭时原生菜单窗口尚在销毁，稍等一拍再推送鼠标位置刷新 hover
+        setTimeout(resolveHelpHover, 0);
+      },
+    });
+  } catch (err) {
+    log("[menu] " + err.message);
+    setMenuOpen(false);
+  }
 });
 // 关于浮层数据：dsh 路径按 自启记录 → 缓存 → PATH 候选 依次检测，取第一个有效值
 ipcMain.handle("get-app-info", async () => {
@@ -908,7 +1126,7 @@ ipcMain.handle("open-log", () => {
 ipcMain.on("task-complete", () => {
   if (!win || win.isDestroyed()) return;
   if (!win.isMinimized()) return;
-  const n = new Notification({ title: "DeepSeek Harness", body: "回答已完成" });
+  const n = new Notification({ title: "DeepSeek Harness", body: t("toastBody") });
   n.on("click", () => {
     if (win && !win.isDestroyed()) {
       win.restore();
@@ -933,8 +1151,9 @@ if (!gotLock) {
   app.whenReady().then(() => {
     // 'system' 模式下 OS 主题变化时重新应用（背景色 + 标题栏图标）
     nativeTheme.on("updated", applyTheme);
+    currentLang = applyLanguage(); // 窗口创建前先定好语言（启动页 loadFile 的 ?lang= 用到）
     const dark = applyTheme();
-    startThemeWatch();
+    startSettingsWatch(); // 主题 + 语言均从 settings.yaml 实时同步
     createWindow(dark);
     startFlow();
   });

@@ -67,15 +67,27 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 - Live sync: `fs.watch` on `$DSH_HOME` filtered to `settings.yaml` events (dsh persists in-app theme changes there) → re-apply on change (~300ms debounce)
 - The startup page receives the resolved theme as `?theme=dark|light` and uses DeepSeek's official dark palette (bg `rgb(21,21,23)`, layer `rgb(35,35,36)`, brand blue `rgb(86,134,254)`); the black logo is inverted in dark mode
 
+### 多语言 i18n（2026-08-18：跟随 dsh web 语言切换）
+- The app UI language follows dsh web: it reads `locale.preference` from `$DSH_HOME/settings.yaml` (`readLangPreference`). Only `zh`/`zh-*` maps to Chinese; a missing setting or any other language (including `en`) falls back to **English**
+- Covers every app-owned string: the top-bar 帮助 button (`Help`/帮助), the three help-menu items, the entire 「当前 dsh / 关于」 overlay (title, labels, placeholders, mode/version text), all startup-page states (detecting / select / starting / port-conflict / failed / crashed + feedback hints), the reused-dsh close prompt dialog, and the completion toast
+- Two delivery paths: the startup page gets its initial language via the `?lang=zh|en` `loadFile` query (same mechanism as `?theme=`); the injected top bar and about overlay subscribe to the `chrome-language` IPC event (pushed by `applyLanguage()` to both `win.webContents` and the dsh view) for **live** switching
+- `startSettingsWatch` (renamed from `startThemeWatch`) syncs theme and language together from the same `settings.yaml` watcher (~300ms debounce); the about overlay re-renders in place, keeping already-fetched dsh info and only swapping copy
+- Main-process strings use a `UI`/`t()` dictionary (`currentLang`); preload exposes `onChromeLanguage`
+
 ### Tech stack (Q5)
 - **Plain JavaScript** — no TypeScript, no framework, no Vite/build step
 - Keep the shell thin: the main process only spawns dsh → resolves the port → loadURL → status display (plus theme sync)
 - Packaged with electron-builder
 
-### Window (Q10 / Q13, updated 2026-08-17: custom top bar)
+### Window (Q10 / Q13, updated 2026-08-17: custom top bar; updated 2026-08-18: 帮助 dropdown menu)
 - 1280×800, maximizable, min size 800×600
 - **No menu bar**; **custom top bar** replaces the native title bar: `titleBarStyle: 'hidden'` + `titleBarOverlay` (Window Controls Overlay keeps native min/max/close on the right); no title-bar icon
-- The top bar (32px, injected only into the startup page via `injectChrome`) shows the **dsh-desktop** brand text on the left (no logo image — dsh web already shows its own logo), then **关于 / 官网** buttons; 关于 shows an **in-page overlay** (dark `rgba(0,0,0,.55)` backdrop + `backdrop-filter: blur`, injected via `injectAboutOverlay` into the dsh view, with the startup page as fallback before the view exists) — a bottom-bordered header (关于 + close), placeholder rows ("正在获取…") filled with the **detected** dsh path/version (in-use → cache → PATH candidates, first valid wins via `get-app-info`), port, start mode (app-started vs reused), and the **应用日志** path as a clickable link (`open-log`, opens the logs folder/file); footer links **dsh-desktop** to the repo (`open-repo`) plus `v<version>`; 官网 opens `https://www.deepseek.com/harness/` in the default browser
+- The top bar (32px, injected only into the startup page via `injectChrome`) shows the **dsh logo** on the left (the rendering page's `logo.png`, black transparent; inverted to white via CSS `filter` in dark mode — it replaced the earlier `dsh-desktop` brand text), then a single **帮助** button whose label uses the **secondary/muted text color** (`--dshc-muted`: `#6b7280` light / `rgb(129,133,140)` dark) and switches to the **primary text color** (inherited bar `color`) on hover; the button is **hidden on the startup page** (default `display:none`, shown by the `help-btn-state` IPC once the dsh view is mounted, hidden again when the view is removed)
+- Clicking 帮助 pops a **native dropdown menu** (`Menu.popup` via the `open-help-menu` IPC), positioned **below the button, left-aligned** (the button's `getBoundingClientRect()` viewport rect is passed straight to `Menu.popup` — its `x`/`y` are relative to the window content area, so **no** `win.getContentBounds()`/screen-coordinate conversion is added), with three items:
+  1. **当前 dsh** — in-page overlay (`injectAboutOverlay` into the dsh view, with the startup page as fallback before the view exists): dark `rgba(0,0,0,.55)` backdrop + `backdrop-filter: blur`, bottom-bordered header (当前 dsh + close), placeholder rows ("正在获取…") filled with the **detected** dsh path/version (in-use → cache → PATH candidates, first valid wins via `get-app-info`), port, start mode (app-started vs reused), and the **应用日志** path as a clickable link (`open-log`)
+  2. **DeepSeek Harness 官网** — opens `https://www.deepseek.com/harness/` in the default browser
+  3. **关于** — the same overlay in app mode: **dsh-desktop version** and **仓库地址** (`open-repo`)
+- Hover residue fix: while the menu is open the button's hover highlight is suppressed via the `.dshc-menu-open` class (toggle pushed by the `help-menu-state` IPC; `true` before `popup`, `false` in the popup `callback`, which fires when the menu closes); because the native menu swallows mouse input, the renderer's `:hover` can stay stale after close, so the popup callback also pushes a **trusted `mouseMove` input event** (`sendInputEvent`) at the real cursor position (`screen.getCursorScreenPoint()` → content-relative via `getContentBounds()`, `setTimeout(…, 0)` after close) to force Chromium to re-hit-test and drop any leftover highlight
 - Bar colors: light `#f9fafb` / dark `#1b1b1c`, with a bottom border; the Window Controls Overlay uses the same colors
 - **The dsh page lives in its own `WebContentsView`** positioned below the top bar (`y: 32`, re-laid out on resize/maximize): the dsh page is **never modified** (no CSS/DOM injection for layout), so its own modals, popups and scrollbars behave exactly like a normal browser viewport; only the `TASK_WATCHER` script and the external-link handlers are attached to the view's webContents; on dsh crash the view is removed so the startup page's crash state shows
 - Title is locked (`page-title-updated` prevented): window/taskbar title always shows `dsh-desktop <version>`, never the page's conversation title
@@ -174,10 +186,11 @@ npm run build
 - [ ] dsh crashes mid-run: error page + manual restart
 - [ ] dsh logs land in `userData/logs/dsh.log`
 - [ ] F12 toggles DevTools
-- [ ] Custom top bar (32px) shows `dsh-desktop` text + 关于/官网 buttons; 关于 shows an in-page overlay (dark backdrop + blur) with detected dsh path/version, start mode, clickable 应用日志 path, repo link + version; 官网 opens the site in the default browser
+- [ ] Custom top bar (32px) shows the **dsh logo** (black; white in dark mode) + a single 帮助 button (secondary/muted label color, `#6b7280` light / `rgb(129,133,140)` dark, switching to the **primary text color** on hover), **hidden on the startup page** and shown after the dsh view loads; clicking it pops a native menu **below the button, left-aligned** with 当前 dsh / DeepSeek Harness 官网 / 关于; 当前 dsh shows the in-page overlay (dark backdrop + blur) with detected dsh path/version, start mode, clickable 应用日志 path; 官网 opens the site in the default browser; 关于 shows dsh-desktop version + repo address; after the menu closes the 帮助 button shows **no leftover hover highlight**
 - [ ] dsh page renders unmodified in its own view below the top bar: its modals/scrollbars behave normally and nothing is covered
 - [ ] Clicking an external link in the dsh page opens the system default browser, never the app window
 - [ ] Switching light/dark/system in the harness UI updates the title bar theme live
+- [ ] Switching language in the harness UI updates the app UI **live** (帮助↔Help, the dropdown menu, and the whole 「当前 dsh / 关于」 overlay follow `locale.preference`); with no `locale.preference` or a non-zh setting the app defaults to **English** (startup page, menu, overlay, close prompt, toast)
 - [ ] Answer finished while the window is minimized → toast "回答已完成"; clicking it restores the window; manual stop does not notify
 
 ## Known risks / notes
