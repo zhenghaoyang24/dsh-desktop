@@ -6,11 +6,11 @@ const { t } = require("./i18n");
 const { verifyDsh, findDshCandidates, checkLatestDshVersion } = require("./dsh");
 const { readSettings } = require("./settings-store");
 const { startFlow } = require("./startup");
-const { showAboutDialog, showUpdateCheckDialog, toggleHelpMenu } = require("./injected/index");
+const { showAboutDialog, showUpdateCheckDialog, toggleDropdown } = require("./injected/index");
 const { log, logFile } = require("./paths");
 const { PORT, HOME_URL, COMMUNITY_URL, AWESOME_DSH_PLUGIN_URL, REPO_URL, DSH_NPM_NAME, PANEL_WIDTH } = require("./constants");
 const { readDirectory, readFileContent, writeFileContent, getWorkspaceRoot } = require("./files");
-const { layoutDshView } = require("./view");
+const { layoutDshView, toggleFullscreenMode } = require("./view");
 
 ipcMain.handle("confirm-dsh-path", async (_e, p) => {
   if (typeof p !== "string" || !p.trim()) return { ok: false, error: t("errPathEmpty") };
@@ -33,44 +33,60 @@ ipcMain.handle("retry", () => startFlow());
 ipcMain.handle("restart-dsh", () => startFlow());
 ipcMain.handle("open-repo", () => shell.openExternal(REPO_URL));
 
-// 自定义「帮助」下拉菜单（替代原生 Menu.popup）：菜单 UI 由注入脚本渲染在页面内
-// （dsh 视图，启动页兜底），坐标换算与打开/关闭见 injected/index.js 的 toggleHelpMenu。
-// 点击帮助按钮 → 主进程推送 help-menu-popup 并置 help-menu-state=true（按钮高亮）；
-// 菜单自行关闭（点击外部 / Escape / 点击菜单项）→ help-menu-closed 复位按钮高亮。
-ipcMain.handle("open-help-menu", (_e, rect) => {
-  toggleHelpMenu(rect);
+// 自定义下拉菜单（帮助 / View，替代原生 Menu.popup）：菜单 UI 由注入脚本渲染在页面内
+// （dsh 视图，启动页兜底），坐标换算与打开/关闭见 injected/index.js 的 toggleDropdown。
+// 点击菜单按钮 → 主进程推送 dropdown-popup 并置 dropdown-menu-state=true（对应按钮高亮）；
+// 菜单自行关闭（点击外部 / Escape / 点击菜单项）→ dropdown-closed 复位按钮高亮。
+ipcMain.handle("open-menu", (_e, menuId, rect) => {
+  if (menuId !== "help" && menuId !== "view") return;
+  toggleDropdown(menuId, rect);
 });
 
-// 菜单项动作：由注入的自定义菜单点击触发（id 白名单）
-ipcMain.on("help-menu-action", (_e, action) => {
-  switch (action) {
-    case "current-dsh":
-      showAboutDialog("dsh");
-      break;
-    case "check-update":
-      showUpdateCheckDialog();
-      break;
-    case "home":
-      shell.openExternal(HOME_URL);
-      break;
-    case "community":
-      shell.openExternal(COMMUNITY_URL);
-      break;
-    case "awesome-plugin":
-      shell.openExternal(AWESOME_DSH_PLUGIN_URL);
-      break;
-    case "about":
-      showAboutDialog("app");
-      break;
-    default:
-      log("[menu] unknown action: " + action);
+// 菜单项动作：由注入的自定义菜单点击触发（menuId + 动作 id 白名单）
+ipcMain.on("dropdown-action", (_e, menuId, action) => {
+  if (menuId === "help") {
+    switch (action) {
+      case "current-dsh":
+        showAboutDialog("dsh");
+        break;
+      case "check-update":
+        showUpdateCheckDialog();
+        break;
+      case "home":
+        shell.openExternal(HOME_URL);
+        break;
+      case "community":
+        shell.openExternal(COMMUNITY_URL);
+        break;
+      case "awesome-plugin":
+        shell.openExternal(AWESOME_DSH_PLUGIN_URL);
+        break;
+      case "about":
+        showAboutDialog("app");
+        break;
+      default:
+        log("[menu] unknown action: " + action);
+    }
+  } else if (menuId === "view") {
+    switch (action) {
+      case "maximize":
+        toggleFullscreenMode(); // View → 最大化：内容全屏（窗口全屏 + 隐藏顶栏，F11 退出）
+        break;
+      default:
+        log("[menu] unknown action: " + action);
+    }
+  } else {
+    log("[menu] unknown menu: " + menuId);
   }
 });
 
 // 菜单自行关闭：复位打开状态与按钮高亮
-ipcMain.on("help-menu-closed", () => {
-  state.helpMenuOpen = false;
-  if (state.win && !state.win.isDestroyed()) state.win.webContents.send("help-menu-state", false);
+ipcMain.on("dropdown-closed", (_e, menuId) => {
+  if (state.openMenu !== menuId) return;
+  state.openMenu = null;
+  if (state.win && !state.win.isDestroyed()) {
+    state.win.webContents.send("dropdown-menu-state", menuId, false);
+  }
 });
 
 // 检查 dsh 更新：获取当前版本 + 比较 npm registry 上的最新版本

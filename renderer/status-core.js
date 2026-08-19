@@ -70,6 +70,10 @@
       updateErrUnknown: '发生未知错误，请稍后重试。',
       // —— 顶栏 ——
       help: '帮助',
+      view: '视图',
+      // —— View 菜单 / 内容全屏 ——
+      viewMaximize: '最大化',
+      fullscreenHint: 'F11 退出最大化',
       // —— 关于浮层（当前 dsh / 关于 面板） ——
       currentDsh: '当前 dsh',
       about: '关于',
@@ -141,6 +145,10 @@
       updateErrUnknown: 'An unknown error occurred. Please try again later.',
       // —— 顶栏 ——
       help: 'Help',
+      view: 'View',
+      // —— View 菜单 / 内容全屏 ——
+      viewMaximize: 'Maximize',
+      fullscreenHint: 'Press F11 to exit fullscreen',
       // —— 关于浮层（当前 dsh / 关于 面板） ——
       currentDsh: 'Current dsh',
       about: 'About',

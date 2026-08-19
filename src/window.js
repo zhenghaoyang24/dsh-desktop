@@ -3,8 +3,8 @@ const { state } = require("./state");
 const { buildResource, statusHtml, preloadPath } = require("./paths");
 const { t } = require("./i18n");
 const { killDsh } = require("./dsh");
-const { layoutDshView } = require("./view");
-const { injectChrome, hideHelpMenu } = require("./injected/index");
+const { layoutDshView, handleGlobalKey, exitFullscreenMode } = require("./view");
+const { injectChrome, hideDropdown } = require("./injected/index");
 const { isExternalUrl } = require("./external");
 const { color } = require("./theme-palette");
 
@@ -50,20 +50,15 @@ function createWindow(dark) {
     if (state.lastStatus) win.webContents.send("status", state.lastStatus);
     injectChrome(nativeTheme.shouldUseDarkColors);
   });
-  win.webContents.on("before-input-event", (_e, input) => {
-    if (input.type === "keyDown" && input.key === "F12") {
-      const target =
-        state.dshView && !state.dshView.webContents.isDestroyed()
-          ? state.dshView.webContents
-          : win.webContents;
-      target.toggleDevTools();
-    }
-  });
+  // F12 切换 DevTools / F11 切换内容全屏（dsh 视图自身也挂了同一处理器，见 view.js）
+  win.webContents.on("before-input-event", (_e, input) => handleGlobalKey(input));
   win.on("page-title-updated", (e) => e.preventDefault());
   win.on("resize", () => layoutDshView());
   win.on("maximize", () => layoutDshView());
   win.on("unmaximize", () => layoutDshView());
-  win.on("blur", () => hideHelpMenu()); // 窗口失焦时收起自定义帮助菜单（原生菜单会自动关闭，自定义菜单需手动处理）
+  // 用户通过其他途径（如 Win+↓）退出全屏时，同步复位内容全屏状态并恢复顶栏
+  win.on("leave-full-screen", () => exitFullscreenMode());
+  win.on("blur", () => hideDropdown()); // 窗口失焦时收起自定义下拉菜单（原生菜单会自动关闭，自定义菜单需手动处理）
   win.on("close", (e) => {
     // 复用场景：先弹窗询问是否一并关闭非应用启动的 dsh；应用自启则退出即回收
     if (state.closePromptDone || state.startMode !== "reuse") {
