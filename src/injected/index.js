@@ -1,10 +1,11 @@
-// 注入编排：把顶栏 / 关于浮层 / 文件树面板脚本注入到启动页，并提供「帮助」菜单相关的主进程入口
-const { screen } = require("electron");
+// 注入编排：把顶栏 / 关于浮层 / 帮助菜单 / 文件树面板脚本注入到启动页，并提供「帮助」菜单相关的主进程入口
 const { state } = require("../state");
 const { log } = require("../paths");
+const { BAR_HEIGHT } = require("../constants");
 const { CHROME_CSS, chromeScript } = require("./chrome");
 const { ABOUT_OVERLAY_CSS, aboutOverlayScript } = require("./about");
 const { UPDATE_CHECK_CSS, updateCheckScript } = require("./update-check");
+const { HELP_MENU_CSS, helpMenuScript } = require("./help-menu");
 const { FILES_PANEL_CSS, filesPanelScript } = require("./files-panel");
 const { getWorkspaceRoot } = require("../files");
 
@@ -24,6 +25,14 @@ function injectUpdateCheckOverlay(wc, dark, lang) {
   );
 }
 
+function injectHelpMenu(wc, dark, lang) {
+  if (!wc || wc.isDestroyed()) return;
+  wc.insertCSS(HELP_MENU_CSS).catch((err) => log("[help-menu-css] " + err.message));
+  wc.executeJavaScript(helpMenuScript(dark, lang)).catch((err) =>
+    log("[help-menu] " + err.message),
+  );
+}
+
 function injectChrome(dark) {
   const win = state.win;
   if (!win || win.isDestroyed()) return;
@@ -35,6 +44,7 @@ function injectChrome(dark) {
     .catch((err) => log("[chrome] " + err.message));
   injectAboutOverlay(win.webContents, dark, state.currentLang); // 启动页兜底（dsh 视图未创建时）
   injectUpdateCheckOverlay(win.webContents, dark, state.currentLang); // 同上，检查更新浮层兜底
+  injectHelpMenu(win.webContents, dark, state.currentLang); // 同上，帮助菜单兜底
   injectFilesPanel(dark, state.currentLang); // 文件树面板（始终隐藏，点击 Files 按钮时显示）
 }
 
@@ -82,30 +92,56 @@ function setHelpBtn(visible) {
   }
 }
 
-// 原生菜单弹出期间会吞掉鼠标事件，渲染进程的 :hover 停在旧位置（点击时的按钮上），
-// 菜单关闭后不会收到对应的 mouseleave，残留高亮。这里主动推送一次「可信」mouseMove：
-// 主进程的 sendInputEvent 走真实输入管线，Chromium 会按真实光标位置重新命中测试并刷新 hover
-function resolveHelpHover() {
+// 自定义帮助菜单的注入目标：dsh 视图（视图挂载后弹在视图之上），启动页兜底
+function helpMenuTarget() {
+  if (!state.win || state.win.isDestroyed()) return null;
+  return state.dshView && !state.dshView.webContents.isDestroyed()
+    ? state.dshView.webContents
+    : state.win.webContents;
+}
+
+// 打开帮助菜单：把按钮的视口坐标（窗口内容区坐标）换算成目标页面的坐标后推送。
+// 帮助按钮在启动页顶栏，dsh 视图位于顶栏下方（视图 y:0 对应窗口内容区 y:BAR_HEIGHT），
+// 所以注入到视图时 y 要减 BAR_HEIGHT；注入到启动页（视图未创建）时坐标原样。
+function showHelpMenu(rect) {
   const win = state.win;
-  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
-  try {
-    const pt = screen.getCursorScreenPoint(); // 屏幕坐标(DIP)
-    const cb = win.getContentBounds(); // 内容区原点 → 换算成 webContents 视口坐标
-    win.webContents.sendInputEvent({
-      type: "mouseMove",
-      x: Math.round(pt.x - cb.x),
-      y: Math.round(pt.y - cb.y),
-    });
-  } catch (_) {}
+  if (!win || win.isDestroyed()) return;
+  const target = helpMenuTarget();
+  if (!target) return;
+  const x = rect && Number.isFinite(rect.x) ? Math.round(rect.x) : 0;
+  const y = rect && Number.isFinite(rect.y) ? Math.round(rect.y) : 0;
+  const isView = state.dshView && target === state.dshView.webContents;
+  target.send("help-menu-popup", { visible: true, x, y: isView ? y - BAR_HEIGHT : y });
+  state.helpMenuOpen = true;
+  win.webContents.send("help-menu-state", true);
+}
+
+// 关闭帮助菜单（toggle / 窗口失焦时由主进程主动调用）
+function hideHelpMenu() {
+  const win = state.win;
+  if (!win || win.isDestroyed()) return;
+  const target = helpMenuTarget();
+  if (target) target.send("help-menu-popup", { visible: false });
+  state.helpMenuOpen = false;
+  win.webContents.send("help-menu-state", false);
+}
+
+// 点击帮助按钮：菜单已打开则关闭，否则打开
+function toggleHelpMenu(rect) {
+  if (state.helpMenuOpen) hideHelpMenu();
+  else showHelpMenu(rect);
 }
 
 module.exports = {
   injectAboutOverlay,
   injectUpdateCheckOverlay,
+  injectHelpMenu,
   injectChrome,
   injectFilesPanel,
   showAboutDialog,
   showUpdateCheckDialog,
   setHelpBtn,
-  resolveHelpHover,
+  showHelpMenu,
+  hideHelpMenu,
+  toggleHelpMenu,
 };

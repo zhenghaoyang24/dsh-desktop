@@ -19,6 +19,7 @@ const state = {
   closePromptDone: false, // 复用场景退出询问弹窗是否已决策
   closePromptPending: false, // 弹窗弹出中，防止关闭事件重入
   filePanelOpen: false, // 文件树面板是否打开
+  helpMenuOpen: false, // 自定义帮助菜单是否打开（toggle / 失焦关闭用）
 };
 
 module.exports = { state };

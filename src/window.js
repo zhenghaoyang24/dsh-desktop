@@ -4,7 +4,7 @@ const { buildResource, statusHtml, preloadPath } = require("./paths");
 const { t } = require("./i18n");
 const { killDsh } = require("./dsh");
 const { layoutDshView } = require("./view");
-const { injectChrome } = require("./injected/index");
+const { injectChrome, hideHelpMenu } = require("./injected/index");
 const { isExternalUrl } = require("./external");
 const { color } = require("./theme-palette");
 
@@ -63,6 +63,7 @@ function createWindow(dark) {
   win.on("resize", () => layoutDshView());
   win.on("maximize", () => layoutDshView());
   win.on("unmaximize", () => layoutDshView());
+  win.on("blur", () => hideHelpMenu()); // 窗口失焦时收起自定义帮助菜单（原生菜单会自动关闭，自定义菜单需手动处理）
   win.on("close", (e) => {
     // 复用场景：先弹窗询问是否一并关闭非应用启动的 dsh；应用自启则退出即回收
     if (state.closePromptDone || state.startMode !== "reuse") {

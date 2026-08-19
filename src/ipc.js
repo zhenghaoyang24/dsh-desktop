@@ -1,4 +1,4 @@
-const { ipcMain, dialog, shell, Menu, Notification, app } = require("electron");
+const { ipcMain, dialog, shell, Notification, app } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { state } = require("./state");
@@ -6,7 +6,7 @@ const { t } = require("./i18n");
 const { verifyDsh, findDshCandidates, checkLatestDshVersion } = require("./dsh");
 const { readSettings } = require("./settings-store");
 const { startFlow } = require("./startup");
-const { showAboutDialog, showUpdateCheckDialog, resolveHelpHover } = require("./injected/index");
+const { showAboutDialog, showUpdateCheckDialog, toggleHelpMenu } = require("./injected/index");
 const { log, logFile } = require("./paths");
 const { PORT, HOME_URL, COMMUNITY_URL, AWESOME_DSH_PLUGIN_URL, REPO_URL, DSH_NPM_NAME, PANEL_WIDTH } = require("./constants");
 const { readDirectory, readFileContent, writeFileContent, getWorkspaceRoot } = require("./files");
@@ -33,44 +33,44 @@ ipcMain.handle("retry", () => startFlow());
 ipcMain.handle("restart-dsh", () => startFlow());
 ipcMain.handle("open-repo", () => shell.openExternal(REPO_URL));
 
-// 「帮助」下拉菜单：点击后出现在按钮正下方、左对齐。
-// Menu.popup 的 x/y 相对窗口内容区（与渲染进程 getBoundingClientRect 的视口坐标同原点），
-// 直接传递即可，无需叠加 getContentBounds()（那会再次加上窗口屏幕原点导致位置错位）。
-// 菜单项直接在主进程执行；菜单打开期间用 help-menu-state 抑制按钮 hover，关闭（callback）时复位
+// 自定义「帮助」下拉菜单（替代原生 Menu.popup）：菜单 UI 由注入脚本渲染在页面内
+// （dsh 视图，启动页兜底），坐标换算与打开/关闭见 injected/index.js 的 toggleHelpMenu。
+// 点击帮助按钮 → 主进程推送 help-menu-popup 并置 help-menu-state=true（按钮高亮）；
+// 菜单自行关闭（点击外部 / Escape / 点击菜单项）→ help-menu-closed 复位按钮高亮。
 ipcMain.handle("open-help-menu", (_e, rect) => {
-  if (!state.win || state.win.isDestroyed()) return;
-  const menu = Menu.buildFromTemplate([
-    { label: t("menuCurrentDsh"), click: () => showAboutDialog("dsh") },
-    { label: t("menuCheckUpdate"), click: () => showUpdateCheckDialog() },
-    { label: t("menuHome"), click: () => shell.openExternal(HOME_URL) },
-    { type: "separator" },
-    { label: t("menuCommunity"), click: () => shell.openExternal(COMMUNITY_URL) },
-    { label: t("menuAwesomePlugin"), click: () => shell.openExternal(AWESOME_DSH_PLUGIN_URL) },
-    { type: "separator" },
-    { label: t("menuAbout"), click: () => showAboutDialog("app") },
-  ]);
-  const setMenuOpen = (open) => {
-    if (state.win && !state.win.isDestroyed()) state.win.webContents.send("help-menu-state", open);
-  };
-  setMenuOpen(true);
-  try {
-    // x/y 相对窗口内容区（与按钮的视口坐标一致）；不要叠加 win.getContentBounds()，否则菜单会错位
-    const x = rect && Number.isFinite(rect.x) ? Math.round(rect.x) : undefined;
-    const y = rect && Number.isFinite(rect.y) ? Math.round(rect.y) : undefined;
-    menu.popup({
-      window: state.win,
-      x,
-      y,
-      callback: () => {
-        setMenuOpen(false);
-        // 菜单刚关闭时原生菜单窗口尚在销毁，稍等一拍再推送鼠标位置刷新 hover
-        setTimeout(resolveHelpHover, 0);
-      },
-    });
-  } catch (err) {
-    log("[menu] " + err.message);
-    setMenuOpen(false);
+  toggleHelpMenu(rect);
+});
+
+// 菜单项动作：由注入的自定义菜单点击触发（id 白名单）
+ipcMain.on("help-menu-action", (_e, action) => {
+  switch (action) {
+    case "current-dsh":
+      showAboutDialog("dsh");
+      break;
+    case "check-update":
+      showUpdateCheckDialog();
+      break;
+    case "home":
+      shell.openExternal(HOME_URL);
+      break;
+    case "community":
+      shell.openExternal(COMMUNITY_URL);
+      break;
+    case "awesome-plugin":
+      shell.openExternal(AWESOME_DSH_PLUGIN_URL);
+      break;
+    case "about":
+      showAboutDialog("app");
+      break;
+    default:
+      log("[menu] unknown action: " + action);
   }
+});
+
+// 菜单自行关闭：复位打开状态与按钮高亮
+ipcMain.on("help-menu-closed", () => {
+  state.helpMenuOpen = false;
+  if (state.win && !state.win.isDestroyed()) state.win.webContents.send("help-menu-state", false);
 });
 
 // 检查 dsh 更新：获取当前版本 + 比较 npm registry 上的最新版本

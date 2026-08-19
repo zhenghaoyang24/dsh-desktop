@@ -28,8 +28,8 @@ html[data-dshc-theme="dark"] .dshc-brand { filter: invert(1); }
 }
 /* hover 时按钮文字回归主要文本色（继承顶栏的 color，即主文字色） */
 .dshc-btn:hover { background: ${P.hoverBg}; color: inherit; }
-/* 下拉菜单打开期间取消按钮 hover（原生菜单接管鼠标后页面收不到 mouseleave，会残留高亮） */
-.dshc-btn.dshc-menu-open, .dshc-btn.dshc-menu-open:hover { background: transparent; color: var(--dshc-muted); }
+/* 下拉菜单打开期间按钮保持高亮（自定义菜单打开状态的视觉反馈，由 help-menu-state 切换） */
+.dshc-btn.dshc-menu-open { background: ${P.hoverBg}; color: inherit; }
 `;
 
 function chromeScript(dark, lang) {
@@ -86,8 +86,8 @@ function chromeScript(dark, lang) {
   };
   btnHelp.addEventListener('click', function () {
     if (!api || !api.openHelpMenu) return;
-    var r = btnHelp.getBoundingClientRect(); // 视口坐标：Menu.popup 的 x/y 以窗口内容区为原点，与其一致，直接传递
-    btnHelp.classList.add('dshc-menu-open'); // 先取消 hover，等主进程确认菜单已打开
+    var r = btnHelp.getBoundingClientRect(); // 视口坐标，主进程换算成菜单所在页面（dsh 视图）的坐标
+    btnHelp.classList.add('dshc-menu-open'); // 先高亮，等主进程推送 help-menu-state 复位
     api.openHelpMenu({ x: r.left, y: r.bottom });
   });
   if (api && api.onHelpMenuState) {
