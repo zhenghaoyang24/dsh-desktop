@@ -13,7 +13,7 @@ if (!gotLock) {
   app.quit();
 } else {
   // Windows 通知 toast / 任务栏分组需要 AUMID（与 electron-builder.yml 的 appId 一致）
-  app.setAppUserModelId("com.dsh.desktop");
+  app.setAppUserModelId("github.zhenghaoyang24.dsh-desktop");
   app.on("second-instance", () => {
     if (state.win) {
       if (state.win.isMinimized()) state.win.restore();

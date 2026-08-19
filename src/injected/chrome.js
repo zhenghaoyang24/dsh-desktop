@@ -17,7 +17,7 @@ const CHROME_CSS = `
 }
 html[data-dshc-theme="dark"] .dshc-bar { background: ${P.barBg.dark}; color: ${P.barFg.dark}; --dshc-border: ${P.border.dark}; --dshc-muted: ${P.textMuted.dark}; }
 html[data-dshc-theme="light"] .dshc-bar { background: ${P.barBg.light}; color: ${P.barFg.light}; --dshc-border: ${P.border.light}; --dshc-muted: ${P.textMuted.light}; }
-/* 顶栏左侧 logo：复用渲染页 logo.png（黑色透明底），暗色主题下 filter: invert 转为白色 */
+/* 顶栏左侧 logo：复用 buildResources/logo.png（黑色透明底），暗色主题下 filter: invert 转为白色 */
 .dshc-brand { height: 16px; width: auto; flex-shrink: 0; -webkit-user-drag: none; }
 html[data-dshc-theme="dark"] .dshc-brand { filter: invert(1); }
 .dshc-btn {
@@ -55,7 +55,7 @@ function chromeScript(dark, lang) {
   // 左侧 logo（黑色透明底，暗色主题下由 CSS 反转成白色）替代原来的品牌文字
   var brand = document.createElement('img');
   brand.className = 'dshc-brand';
-  brand.src = 'logo.png';
+  brand.src = '../buildResources/logo.png';
   brand.alt = 'dsh-desktop';
   bar.appendChild(brand);
   // 「帮助」下拉按钮：启动页面隐藏，进入主界面（dsh 视图挂载）后由主进程显示；文字随界面语言

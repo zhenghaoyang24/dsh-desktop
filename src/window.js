@@ -22,7 +22,7 @@ function createWindow(dark) {
       height: 30,
     },
     backgroundColor: color("windowBg", dark),
-    icon: buildResource(dark ? "logo-light.png" : "logo.png"),
+    icon: buildResource("icon.ico"),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,

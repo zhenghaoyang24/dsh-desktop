@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { nativeTheme } = require("electron");
 const { state } = require("./state");
-const { dshHome, buildResource } = require("./paths");
+const { dshHome } = require("./paths");
 const { applyLanguage } = require("./i18n");
 const { color } = require("./theme-palette");
 
@@ -31,8 +31,6 @@ function applyTheme() {
   const win = state.win;
   if (win && !win.isDestroyed()) {
     win.setBackgroundColor(color("windowBg", dark));
-    // 任务栏图标随主题切换：暗色用白色 logo，亮色用黑色 logo
-    win.setIcon(buildResource(dark ? "logo-light.png" : "logo.png"));
     if (process.platform === "win32") {
       // 自绘顶栏 + Window Controls Overlay：原生窗口按钮区颜色随主题
       win.setTitleBarOverlay({

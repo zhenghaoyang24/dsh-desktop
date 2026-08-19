@@ -56,14 +56,14 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
   - `build/dsh-desktop-0.1.4-win.zip` → unzip, then double-click `dsh-desktop.exe`
   - `build/dsh-desktop.exe` (electron-builder `portable` target)
 - App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.4`
-- Icon: exe icon is `buildResources/icon.png` (black DeepSeek logo on a white rounded-corner background); the in-app top-left icons — window icon and startup-page top icon — keep `buildResources/logo.png` (transparent background; a copy lives in `renderer/` for the startup page)
+- Icon: exe icon is `buildResources/icon.png` (black DeepSeek logo on a white rounded-corner background); the window/taskbar icon uses `buildResources/icon.ico` (multi-size .ico generated from `icon.png`, same white rounded bg, so the taskbar icon matches the exe); the startup-page top logo uses `buildResources/logo.png` (transparent background, referenced as `../buildResources/logo.png` from `renderer/status.html` — the old `renderer/logo.png` copy was removed)
 - Not signed (SmartScreen considered for V2)
 
 ### Theme following (2026-08-14, updated 2026-08-17: custom top bar)
 - The app follows the theme set in dsh's web UI (light/dark/system)
 - Reads `ui-theme.preference` from `$DSH_HOME/settings.yaml` (default `~/.dsh/settings.yaml`)
 - `system` resolves via the OS color scheme; the app sets `nativeTheme.themeSource` accordingly, updates the window `backgroundColor`, the custom top bar and Window Controls Overlay colors (`win.setTitleBarOverlay`), and pushes `chrome-theme` to the injected bar
-- Taskbar icon uses the black logo (`buildResources/logo.png`) in light mode / white logo (`buildResources/logo-light.png`) in dark mode — swapped via `win.setIcon()`; the two logo files are packaged (`buildResources/logo*.png` in `files`)
+- Window/taskbar icon is fixed to `buildResources/icon.ico` (generated from `icon.png`, white rounded bg) — no per-theme logo swap. A single lone PNG as the window icon renders as the Electron default on the Windows taskbar, so a multi-size .ico is used instead; the previous `win.setIcon()` light/dark logo swapping in `theme.js` was removed
 - Live sync: `fs.watch` on `$DSH_HOME` filtered to `settings.yaml` events (dsh persists in-app theme changes there) → re-apply on change (~300ms debounce)
 - The startup page receives the resolved theme as `?theme=dark|light` and uses DeepSeek's official dark palette (bg `rgb(21,21,23)`, layer `rgb(35,35,36)`, brand blue `rgb(86,134,254)`); the black logo is inverted in dark mode
 
@@ -82,7 +82,7 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 ### Window (Q10 / Q13, updated 2026-08-17: custom top bar; updated 2026-08-18: 帮助 dropdown menu)
 - 1280×800, maximizable, min size 800×600
 - **No menu bar**; **custom top bar** replaces the native title bar: `titleBarStyle: 'hidden'` + `titleBarOverlay` (Window Controls Overlay keeps native min/max/close on the right); no title-bar icon
-- The top bar (32px, injected only into the startup page via `injectChrome`) shows the **dsh logo** on the left (the rendering page's `logo.png`, black transparent; inverted to white via CSS `filter` in dark mode — it replaced the earlier `dsh-desktop` brand text), then a single **帮助** button whose label uses the **secondary/muted text color** (`--dshc-muted`: `#6b7280` light / `rgb(129,133,140)` dark) and switches to the **primary text color** (inherited bar `color`) on hover; the button is **hidden on the startup page** (default `display:none`, shown by the `help-btn-state` IPC once the dsh view is mounted, hidden again when the view is removed)
+- The top bar (32px, injected only into the startup page via `injectChrome`) shows the **dsh logo** on the left (`../buildResources/logo.png`, black transparent; inverted to white via CSS `filter` in dark mode — it replaced the earlier `dsh-desktop` brand text), then a single **帮助** button whose label uses the **secondary/muted text color** (`--dshc-muted`: `#6b7280` light / `rgb(129,133,140)` dark) and switches to the **primary text color** (inherited bar `color`) on hover; the button is **hidden on the startup page** (default `display:none`, shown by the `help-btn-state` IPC once the dsh view is mounted, hidden again when the view is removed)
 - Clicking 帮助 pops a **native dropdown menu** (`Menu.popup` via the `open-help-menu` IPC), positioned **below the button, left-aligned** (the button's `getBoundingClientRect()` viewport rect is passed straight to `Menu.popup` — its `x`/`y` are relative to the window content area, so **no** `win.getContentBounds()`/screen-coordinate conversion is added), with three items:
   1. **当前 dsh** — in-page overlay (`injectAboutOverlay` into the dsh view, with the startup page as fallback before the view exists): dark `rgba(0,0,0,.55)` backdrop + `backdrop-filter: blur`, bottom-bordered header (当前 dsh + close), placeholder rows ("正在获取…") filled with the **detected** dsh path/version (in-use → cache → PATH candidates, first valid wins via `get-app-info`), port, start mode (app-started vs reused)
   2. **DeepSeek Harness 官网** — opens `https://www.deepseek.com/harness/` in the default browser
@@ -117,7 +117,8 @@ States the startup page must cover: detecting → select dsh (candidate list + m
 - When the harness finishes answering and the window is **minimized**, the app shows a Windows toast ("回答已完成"); clicking it restores and focuses the window
 - Detection: a `TASK_WATCHER` script is injected into the dsh page (only for `APP_URL` loads, re-injected on every `did-finish-load`) — a `MutationObserver` watches the composer card (`[data-composer-card="true"]`); "generating" = the primary button (`button[class$="_primary"]`) shows the stop icon (`svg rect`) or a 停止/Stop aria-label; completion = that state clears after an 800ms settle delay, then `window.electronAPI.notifyTaskComplete()` reports via IPC
 - Manual stop (clicking the stop button) is tracked and does **not** notify
-- Requires `app.setAppUserModelId('com.dsh.desktop')` (matches `appId`) — without it Windows toasts silently fail
+- Requires `app.setAppUserModelId('github.zhenghaoyang24.dsh-desktop')` (matches `appId`) — without it Windows toasts silently fail
+- AUMID / `appId` 统一为 `github.zhenghaoyang24.dsh-desktop`：Windows 会**按 AUMID 缓存任务栏图标**；旧值 `com.dsh.desktop` 的图标缓存曾被污染成 Electron 默认图标，换新值可强制生成新缓存条目、恢复正确图标。务必保持 `main.js` 的 AUMID 与 `electron-builder.yml` 的 `appId` 一致，且**不要**改回旧值（除非先清掉 `%LocalAppData%\Microsoft\Windows\Explorer\iconcache_*.db`）
 - The selectors are bilingual (zh/en) and resilient to CSS-module hash changes (`[class$="_primary"]`, stable `data-composer-card` attribute)
 
 ## Directory layout
@@ -153,7 +154,6 @@ dsh-desktop\
 │   ├── status-core.js       # 启动页纯逻辑（looksLikePath）+ i18n 唯一来源 T（浏览器/主进程/注入共用单源）
 │   ├── status.css
 │   ├── status.js
-│   └── logo.png             # Startup-page top logo (copy of buildResources')
 ├── test/                    # node:test 自动化测试（pnpm test 运行）
 │   ├── external.test.js     # isExternalUrl
 │   ├── status-core.test.js  # looksLikePath + i18n 字典完整性
@@ -161,9 +161,10 @@ dsh-desktop\
 │   ├── dsh.test.js          # verifyDsh（mock child_process 超时/退出/error 分支）
 │   └── port.test.js         # probePort（match / 非 dsh / error / timeout）
 ├── buildResources/
-│   ├── logo.png             # Black DeepSeek logo, transparent bg (light-mode window icon)
-│   ├── logo-light.png       # White DeepSeek logo (dark-mode window icon, inverted from logo.png)
-│   └── icon.png             # Logo on white rounded-corner background (exe icon)
+│   ├── logo.png             # Black DeepSeek logo, transparent bg (startup-page top logo)
+│   ├── logo-light.png       # White DeepSeek logo (no longer used by window; kept as resource)
+│   ├── icon.png             # Logo on white rounded-corner background (exe icon source)
+│   └── icon.ico             # Multi-size .ico from icon.png (window/taskbar icon)
 ├── electron-builder.yml
 ├── README.md
 ├── .gitignore

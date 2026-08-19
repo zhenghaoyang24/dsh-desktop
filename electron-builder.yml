@@ -1,4 +1,4 @@
-appId: com.dsh.desktop
+appId: github.zhenghaoyang24.dsh-desktop
 productName: dsh-desktop
 directories:
   output: build
@@ -9,6 +9,7 @@ files:
   - renderer/**
   - package.json
   - buildResources/logo*.png
+  - buildResources/icon.ico
 # 界面只使用中/英，只打包这两种 Chromium 内置资源，去掉其余 50+ 语言包
 electronLanguages:
   - zh-CN
