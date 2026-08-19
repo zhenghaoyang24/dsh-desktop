@@ -8,7 +8,9 @@ const { readSettings } = require("./settings-store");
 const { startFlow } = require("./startup");
 const { showAboutDialog, showUpdateCheckDialog, resolveHelpHover } = require("./injected/index");
 const { log, logFile } = require("./paths");
-const { PORT, HOME_URL, COMMUNITY_URL, REPO_URL, DSH_NPM_NAME } = require("./constants");
+const { PORT, HOME_URL, COMMUNITY_URL, REPO_URL, DSH_NPM_NAME, PANEL_WIDTH } = require("./constants");
+const { readDirectory, readFileContent, writeFileContent, getWorkspaceRoot } = require("./files");
+const { layoutDshView } = require("./view");
 
 ipcMain.handle("confirm-dsh-path", async (_e, p) => {
   if (typeof p !== "string" || !p.trim()) return { ok: false, error: t("errPathEmpty") };
@@ -157,6 +159,36 @@ ipcMain.on("task-complete", () => {
     }
   });
   n.show();
+});
+
+// 文件树面板：切换开关，重置 dsh 视图布局，通知启动页
+ipcMain.handle("toggle-file-panel", () => {
+  state.filePanelOpen = !state.filePanelOpen;
+  layoutDshView();
+  if (state.win && !state.win.isDestroyed()) {
+    state.win.webContents.send("file-panel-state", state.filePanelOpen);
+  }
+  return { open: state.filePanelOpen };
+});
+
+// 读取目录内容
+ipcMain.handle("read-directory", (_e, dirPath) => {
+  return readDirectory(dirPath);
+});
+
+// 读取文件内容
+ipcMain.handle("read-file", (_e, filePath) => {
+  return readFileContent(filePath);
+});
+
+// 写入文件内容
+ipcMain.handle("write-file", (_e, filePath, content) => {
+  return writeFileContent(filePath, content);
+});
+
+// 获取工作区根目录
+ipcMain.handle("get-workspace-root", () => {
+  return getWorkspaceRoot();
 });
 
 module.exports = {};

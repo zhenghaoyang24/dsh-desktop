@@ -63,6 +63,19 @@ function chromeScript(dark, lang) {
   applyLang(cur);
   btnHelp.style.display = 'none';
   bar.appendChild(btnHelp);
+  // 右侧弹性空间
+  var spacer = document.createElement('div');
+  spacer.style.flex = '1';
+  bar.appendChild(spacer);
+  // 「文件树」按钮：暂时隐藏，后续开发
+  var btnFiles = mk('button', 'dshc-btn');
+  btnFiles.textContent = 'Files';
+  btnFiles.style.display = 'none';
+  btnFiles.addEventListener('click', function () {
+    if (!api || !api.toggleFilesPanel) return;
+    api.toggleFilesPanel();
+  });
+  bar.appendChild(btnFiles);
   document.documentElement.appendChild(bar);
   var api = window.electronAPI;
   window.__dshcSetHelp = function (visible) {

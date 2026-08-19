@@ -18,6 +18,7 @@ const state = {
   killOnClose: false, // 关闭应用时是否一并关闭 3080 上的 dsh
   closePromptDone: false, // 复用场景退出询问弹窗是否已决策
   closePromptPending: false, // 弹窗弹出中，防止关闭事件重入
+  filePanelOpen: false, // 文件树面板是否打开
 };
 
 module.exports = { state };

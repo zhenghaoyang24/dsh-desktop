@@ -1,10 +1,12 @@
-// 注入编排：把顶栏 / 关于浮层脚本注入到启动页或 dsh 视图，并提供「帮助」菜单相关的主进程入口
+// 注入编排：把顶栏 / 关于浮层 / 文件树面板脚本注入到启动页，并提供「帮助」菜单相关的主进程入口
 const { screen } = require("electron");
 const { state } = require("../state");
 const { log } = require("../paths");
 const { CHROME_CSS, chromeScript } = require("./chrome");
 const { ABOUT_OVERLAY_CSS, aboutOverlayScript } = require("./about");
 const { UPDATE_CHECK_CSS, updateCheckScript } = require("./update-check");
+const { FILES_PANEL_CSS, filesPanelScript } = require("./files-panel");
+const { getWorkspaceRoot } = require("../files");
 
 function injectAboutOverlay(wc, dark, lang) {
   if (!wc || wc.isDestroyed()) return;
@@ -33,6 +35,19 @@ function injectChrome(dark) {
     .catch((err) => log("[chrome] " + err.message));
   injectAboutOverlay(win.webContents, dark, state.currentLang); // 启动页兜底（dsh 视图未创建时）
   injectUpdateCheckOverlay(win.webContents, dark, state.currentLang); // 同上，检查更新浮层兜底
+  injectFilesPanel(dark, state.currentLang); // 文件树面板（始终隐藏，点击 Files 按钮时显示）
+}
+
+// 注入文件树面板到启动页
+function injectFilesPanel(dark, lang) {
+  const win = state.win;
+  if (!win || win.isDestroyed()) return;
+  if (!win.webContents.getURL().startsWith("file:")) return;
+  const root = getWorkspaceRoot();
+  win.webContents.insertCSS(FILES_PANEL_CSS).catch((err) => log("[fp-css] " + err.message));
+  win.webContents
+    .executeJavaScript(filesPanelScript(dark, lang, root))
+    .catch((err) => log("[fp] " + err.message));
 }
 
 // 关于浮层：type = 'dsh'（当前 dsh 信息）| 'app'（软件版本 + 仓库地址）
@@ -88,6 +103,7 @@ module.exports = {
   injectAboutOverlay,
   injectUpdateCheckOverlay,
   injectChrome,
+  injectFilesPanel,
   showAboutDialog,
   showUpdateCheckDialog,
   setHelpBtn,

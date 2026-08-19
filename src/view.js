@@ -1,6 +1,6 @@
 const { WebContentsView, nativeTheme, shell } = require("electron");
 const { preloadPath, log } = require("./paths");
-const { APP_URL, BAR_HEIGHT } = require("./constants");
+const { APP_URL, BAR_HEIGHT, PANEL_WIDTH } = require("./constants");
 const { state } = require("./state");
 const { TASK_WATCHER } = require("./injected/task-watcher");
 const { injectAboutOverlay, injectUpdateCheckOverlay, setHelpBtn } = require("./injected/index");
@@ -21,7 +21,8 @@ function layoutDshView() {
   const win = state.win;
   if (!win || win.isDestroyed() || !state.dshView) return;
   const [w, h] = win.getContentSize();
-  state.dshView.setBounds({ x: 0, y: BAR_HEIGHT, width: w, height: Math.max(0, h - BAR_HEIGHT) });
+  const pw = state.filePanelOpen ? PANEL_WIDTH : 0;
+  state.dshView.setBounds({ x: 0, y: BAR_HEIGHT, width: Math.max(0, w - pw), height: Math.max(0, h - BAR_HEIGHT) });
 }
 
 function removeDshView() {

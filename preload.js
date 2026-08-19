@@ -16,4 +16,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onHelpMenuState: (cb) => ipcRenderer.on('help-menu-state', (_e, open) => cb(open)),
   onHelpBtnState: (cb) => ipcRenderer.on('help-btn-state', (_e, visible) => cb(visible)),
   notifyTaskComplete: () => ipcRenderer.send('task-complete'),
+  // 文件树面板
+  onFilePanelState: (cb) => ipcRenderer.on('file-panel-state', (_e, open) => cb(open)),
+  toggleFilesPanel: () => ipcRenderer.invoke('toggle-file-panel'),
+  readDirectory: (dirPath) => ipcRenderer.invoke('read-directory', dirPath),
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
+  getWorkspaceRoot: () => ipcRenderer.invoke('get-workspace-root'),
 });
