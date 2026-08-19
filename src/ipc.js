@@ -8,7 +8,7 @@ const { readSettings } = require("./settings-store");
 const { startFlow } = require("./startup");
 const { showAboutDialog, showUpdateCheckDialog, resolveHelpHover } = require("./injected/index");
 const { log, logFile } = require("./paths");
-const { PORT, HOME_URL, COMMUNITY_URL, REPO_URL, DSH_NPM_NAME, PANEL_WIDTH } = require("./constants");
+const { PORT, HOME_URL, COMMUNITY_URL, AWESOME_DSH_PLUGIN_URL, REPO_URL, DSH_NPM_NAME, PANEL_WIDTH } = require("./constants");
 const { readDirectory, readFileContent, writeFileContent, getWorkspaceRoot } = require("./files");
 const { layoutDshView } = require("./view");
 
@@ -42,9 +42,10 @@ ipcMain.handle("open-help-menu", (_e, rect) => {
   const menu = Menu.buildFromTemplate([
     { label: t("menuCurrentDsh"), click: () => showAboutDialog("dsh") },
     { label: t("menuCheckUpdate"), click: () => showUpdateCheckDialog() },
-    { type: "separator" },
     { label: t("menuHome"), click: () => shell.openExternal(HOME_URL) },
+    { type: "separator" },
     { label: t("menuCommunity"), click: () => shell.openExternal(COMMUNITY_URL) },
+    { label: t("menuAwesomePlugin"), click: () => shell.openExternal(AWESOME_DSH_PLUGIN_URL) },
     { type: "separator" },
     { label: t("menuAbout"), click: () => showAboutDialog("app") },
   ]);

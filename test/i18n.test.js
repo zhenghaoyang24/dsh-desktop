@@ -5,7 +5,7 @@ const { T } = require("../renderer/status-core.js");
 const { t } = require("../src/i18n.js");
 
 const MAIN_KEYS = [
-  "menuCurrentDsh", "menuHome", "menuAbout",
+  "menuCurrentDsh", "menuHome", "menuCommunity", "menuAwesomePlugin", "menuAbout",
   "closeReuseMessage", "closeReuseDetail", "closeDsh", "keepDsh",
   "toastBody", "errPathEmpty", "errNoDsh",
 ];
