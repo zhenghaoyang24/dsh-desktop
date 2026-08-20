@@ -53,9 +53,9 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 
 ### Packaging (Q4 / Q11, updated 2026-08-14: both)
 - Two artifacts; the **zip directory build** is the primary (unzip and run, instant start); the single-file portable is secondary (no extraction needed for distribution, but self-extracts ~15s on every launch)
-  - `build/dsh-desktop-0.1.4-windows-x64.zip` → unzip, then double-click `dsh-desktop.exe`
-  - `build/dsh-desktop-0.1.4-windows-x64.exe` (electron-builder `portable` target)
-- App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.4`
+  - `build/dsh-desktop-${version}-windows-x64.zip` → unzip, then double-click `dsh-desktop.exe`
+  - `build/dsh-desktop-${version}-windows-x64.exe` (electron-builder `portable` target)
+- App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.5`
 - Icon: exe icon is `buildResources/icon.png` (black DeepSeek logo on a white rounded-corner background); the window/taskbar icon uses `buildResources/icon.ico` (multi-size .ico generated from `icon.png`, same white rounded bg, so the taskbar icon matches the exe); the startup-page top logo uses `buildResources/logo.png` (transparent background, referenced as `../buildResources/logo.png` from `renderer/status.html` — the old `renderer/logo.png` copy was removed)
 - Not signed (SmartScreen considered for V2)
 
@@ -213,6 +213,36 @@ $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
 $env:ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-builder-binaries/"
 pnpm run build
 ```
+
+### GitHub Actions Release
+
+Workflow file: `.github/workflows/release.yml`
+
+**Trigger**: Push a tag matching `v*` pattern (e.g. `v0.1.5`)
+
+**Steps**:
+1. Run tests (`pnpm test`)
+2. Build the app (`pnpm run build`) with npmmirror for faster downloads
+3. Verify build artifacts exist
+4. Upload artifacts (retained for 30 days)
+5. Create a Draft Release (manual Publish required)
+
+**Usage**:
+```powershell
+# 1. Update version, commit and push to main
+git add -A
+git commit -m "chore: bump version to x.y.z"
+git push origin main
+
+# 2. Create and push tag
+git tag vx.y.z
+git push origin vx.y.z
+
+# 3. GitHub Actions builds and creates Draft Release automatically
+# 4. Go to GitHub Releases page, review and click Publish
+```
+
+**Requirements**: pnpm 10, Node.js 22 (LTS)
 
 ## Verification checklist (self-test after changes)
 

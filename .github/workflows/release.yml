@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+" # 只匹配语义化版本：v0.1.5, v1.0.0 等
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build Electron app
+        run: pnpm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 国内镜像，避免下载超时
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+
+      - name: Verify build artifacts
+        run: |
+          if (-not (Get-ChildItem build/*.zip) -or -not (Get-ChildItem build/*.exe)) {
+            Write-Error "Build artifacts not found!"
+            exit 1
+          }
+          Write-Host "Build artifacts found:"
+          Get-ChildItem build/*.zip, build/*.exe | ForEach-Object { Write-Host "  - $($_.Name)" }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-desktop-${{ github.ref_name }}
+          path: |
+            build/*.zip
+            build/*.exe
+          retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: dsh-desktop ${{ github.ref_name }}
+          body: |
+            ## Downloads
+
+            | Package | File |
+            |---------|------|
+            | Portable folder (recommended) | `dsh-desktop-*-windows-x64.zip` |
+            | Single-file portable | `dsh-desktop-*-windows-x64.exe` |
+
+            See attached files below ⬇️
+
+            ## Installation
+            1. Download the zip file
+            2. Extract to any folder
+            3. Double-click `dsh-desktop.exe`
+          files: |
+            build/*.zip
+            build/*.exe
+          draft: true # 先创建草稿，手动检查后发布
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

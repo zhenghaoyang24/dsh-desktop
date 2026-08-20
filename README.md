@@ -46,8 +46,8 @@ Download from [GitHub Releases](https://github.com/zhenghaoyang24/dsh-desktop/re
 
 | Package | File | Description |
 |---------|------|-------------|
-| **Portable folder** (recommended) | `dsh-desktop-0.1.4-windows-x64.zip` | Unzip to any folder, then double-click `dsh-desktop.exe` |
-| **Single-file portable** | `dsh-desktop-0.1.4-windows-x64.exe` | Double-click directly (self-extracts ~15s on each launch) |
+| **Portable folder** (recommended) | `dsh-desktop-0.1.5-windows-x64.zip` | Unzip to any folder, then double-click `dsh-desktop.exe` |
+| **Single-file portable** | `dsh-desktop-0.1.5-windows-x64.exe` | Double-click directly (self-extracts ~15s on each launch) |
 
 ## Usage
 
