@@ -222,7 +222,7 @@ Workflow file: `.github/workflows/release.yml`
 
 **Steps**:
 1. Run tests (`pnpm test`)
-2. Build the app (`pnpm run build`) with npmmirror for faster downloads
+2. Build the app (`pnpm run build`)
 3. Verify build artifacts exist
 4. Upload artifacts (retained for 30 days)
 5. Create a Draft Release (manual Publish required)
@@ -242,7 +242,7 @@ git push origin vx.y.z
 # 4. Go to GitHub Releases page, review and click Publish
 ```
 
-**Requirements**: pnpm 10, Node.js 22 (LTS)
+**Requirements**: pnpm 11, Node.js 24 (LTS)
 
 ## Verification checklist (self-test after changes)
 
