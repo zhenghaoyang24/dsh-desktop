@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win zip portable",
-    "test": "node --test"
+    "test": "node --test",
+    "postinstall": "install-electron"
   },
   "author": "zhenghaoyang24",
   "repository": {
