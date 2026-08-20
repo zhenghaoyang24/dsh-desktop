@@ -20,7 +20,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onChromeBtnsState: (cb) => ipcRenderer.on('chrome-btns-state', (_e, visible) => cb(visible)),
   onChromeBarVisible: (cb) => ipcRenderer.on('chrome-bar-visible', (_e, visible) => cb(visible)),
   onFullscreenMode: (cb) => ipcRenderer.on('chrome-fullscreen', (_e, on) => cb(on)),
-  notifyTaskComplete: () => ipcRenderer.send('task-complete'),
   // 文件树面板
   onFilePanelState: (cb) => ipcRenderer.on('file-panel-state', (_e, open) => cb(open)),
   toggleFilesPanel: () => ipcRenderer.invoke('toggle-file-panel'),

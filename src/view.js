@@ -2,7 +2,7 @@ const { WebContentsView, nativeTheme, shell } = require("electron");
 const { preloadPath, log } = require("./paths");
 const { APP_URL, BAR_HEIGHT, PANEL_WIDTH } = require("./constants");
 const { state } = require("./state");
-const { TASK_WATCHER } = require("./injected/task-watcher");
+const { startTaskWatcher, stopTaskWatcher } = require("./task-events");
 const {
   injectAboutOverlay,
   injectUpdateCheckOverlay,
@@ -31,13 +31,8 @@ function handleGlobalKey(input) {
   }
 }
 
-// 注入 dsh 网页的任务观察器：监听合成器主按钮的 停止生成/发送消息 切换，
-// 回答完成后通过 window.electronAPI.notifyTaskComplete() 上报（主进程决定是否通知）
-function injectTaskWatcher(wc) {
-  if (!wc || wc.isDestroyed()) return;
-  if (!wc.getURL().startsWith(APP_URL)) return; // 只注入 dsh 页面
-  wc.executeJavaScript(TASK_WATCHER).catch((err) => log("[watcher] " + err.message));
-}
+// 注入 dsh 网页的任务观察器已废弃（2026-08-20）：改为主进程直连 dsh 官方事件流
+// （src/task-events.js），不再依赖页面 DOM 与渲染进程定时器
 
 // dsh 页面放入独立的 WebContentsView（位于顶栏下方；内容全屏模式下铺满整个窗口），
 // 不改动 dsh 页面任何元素
@@ -107,6 +102,7 @@ function removeDshView() {
     state.dshView.webContents.destroy();
   } catch (_) {}
   state.dshView = null;
+  stopTaskWatcher(); // dsh 进程不在/视图移除：停止事件流监听（下次挂载重新启动）
   setChromeBtns(false); // 回到启动页，隐藏「帮助 / View」按钮
 }
 
@@ -127,7 +123,6 @@ async function loadApp() {
     state.dshView.setBackgroundColor(color("windowBg", nativeTheme.shouldUseDarkColors));
     const wc = state.dshView.webContents;
     wc.on("did-finish-load", () => {
-      injectTaskWatcher(wc);
       injectAboutOverlay(wc, nativeTheme.shouldUseDarkColors, state.currentLang);
       injectUpdateCheckOverlay(wc, nativeTheme.shouldUseDarkColors, state.currentLang);
       injectDropdown(wc, nativeTheme.shouldUseDarkColors, state.currentLang);
@@ -152,6 +147,7 @@ async function loadApp() {
     state.win.contentView.addChildView(state.dshView);
     layoutDshView();
     setChromeBtns(true); // 进入主界面，顶栏显示「帮助 / View」按钮
+    startTaskWatcher(); // dsh 已就绪：直连官方事件流，监听任务完成（与页面加载无关）
   } catch (err) {
     state.webReady = false;
     log("[loadURL error] " + err.message);
@@ -161,7 +157,6 @@ async function loadApp() {
 }
 
 module.exports = {
-  injectTaskWatcher,
   layoutDshView,
   removeDshView,
   loadApp,

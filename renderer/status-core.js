@@ -45,7 +45,7 @@
       closeReuseDetail: '是否在退出时一并关闭该 dsh？选择“保留”则 dsh 继续运行。',
       closeDsh: '关闭 dsh',
       keepDsh: '保留 dsh',
-      toastBody: '回答已完成',
+      toastBody: '任务有新回复',
       errPathEmpty: '路径不能为空',
       // —— 检查更新 ——
       menuCheckUpdate: '检查 dsh 更新',
@@ -121,7 +121,7 @@
       closeReuseDetail: 'Close this dsh when exiting? Choose “Keep” to leave it running.',
       closeDsh: 'Close dsh',
       keepDsh: 'Keep dsh',
-      toastBody: 'Answer complete',
+      toastBody: 'Task has a new reply',
       errPathEmpty: 'Path must not be empty',
       // —— 检查更新 ——
       menuCheckUpdate: 'Check dsh Update',

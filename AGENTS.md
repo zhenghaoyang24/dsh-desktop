@@ -94,7 +94,7 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 - Menu-item clicks report back via `dropdown-action` (menuId + action id whitelist handled in the main process: about/update overlays + `shell.openExternal` links + view-maximize). The menus close on **outside click / Escape / clicking the same button again (toggle, `state.openMenu`) / opening the other menu / window blur** (`win.on('blur')` in `src/window.js`); user-side closes send `dropdown-closed` so the main process resets the button's `.dshc-menu-open` highlight (`dropdown-menu-state`). The old native-menu hover-residue workaround (`resolveHelpHover` + trusted `sendInputEvent` `mouseMove`) was removed — a custom in-page menu has no native window swallowing mouse input, so no stale `:hover` can persist
 - **View 菜单与内容全屏（2026-08-18）**: 顶栏「帮助」右侧的 **View** 按钮（文案 `view`：视图/View，与帮助按钮同一套显隐/高亮/语言逻辑）弹出同组件的下拉菜单，菜单项配置在 `dropdown.js` 的 `MENUS.view` 里（后续「调整布局等视图相关内容」直接加项；菜单项支持可选 `shortcut` 字段渲染右侧快捷键提示，如「最大化 F11」），目前只有一项「最大化」。点击 **View → 最大化** 进入**内容全屏模式**：`win.setFullScreen(true)`（OS 全屏、覆盖任务栏，与浏览器 F11 一致）+ 隐藏自绘顶栏（`chrome-bar-visible` IPC）+ dsh 视图铺满整个窗口内容区（`layoutDshView` 的 `state.fullscreenMode` 分支，y:0 全尺寸）；进入时强制关闭文件树面板并收起已打开的下拉菜单，随后 dsh 视图内弹出「F11 退出最大化」提示（`src/injected/fullscreen-hint.js`，~3.5s 自动淡出、指针穿透、随主题/语言联动）；**F11 切换**进出（`handleGlobalKey` 同时挂在启动页与 dsh 视图的 `before-input-event` 上 —— before-input-event 按 webContents 分发，焦点在 dsh 页面时快捷键也要生效；F12 同理顺带修好）。退出恢复原窗口状态与顶栏；`leave-full-screen`（如 Win+↓ 等外部途径退出）同步复位；dsh 崩溃移除视图时自动退出全屏
 - Bar colors: light `#f9fafb` / dark `#1b1b1c`, with a bottom border; the Window Controls Overlay uses the same colors
-- **The dsh page lives in its own `WebContentsView`** positioned below the top bar (`y: 32`, re-laid out on resize/maximize; in 内容全屏 mode it fills the whole window at `y: 0`): the dsh page is **never modified for layout** (no CSS/DOM injection that changes layout), so its own modals, popups and scrollbars behave exactly like a normal browser viewport; only non-layout additions are attached to the view's webContents — the about/update-check overlays, the shared dropdown menus (帮助/View), the fullscreen hint, the `TASK_WATCHER` script and the external-link handlers; on dsh crash the view is removed so the startup page's crash state shows
+- **The dsh page lives in its own `WebContentsView`** positioned below the top bar (`y: 32`, re-laid out on resize/maximize; in 内容全屏 mode it fills the whole window at `y: 0`): the dsh page is **never modified for layout** (no CSS/DOM injection that changes layout), so its own modals, popups and scrollbars behave exactly like a normal browser viewport; only non-layout additions are attached to the view's webContents — the about/update-check overlays, the shared dropdown menus (帮助/View), the fullscreen hint and the external-link handlers; on dsh crash the view is removed so the startup page's crash state shows
 - Title is locked (`page-title-updated` prevented): window/taskbar title always shows `dsh-desktop <version>`, never the page's conversation title
 - External links (http/https outside `127.0.0.1:3080`, plus `mailto:`/`tel:`) open in the **system default browser** via `shell.openExternal` — handled for both `target="_blank"`/`window.open` (`setWindowOpenHandler`) and in-page navigations (`will-navigate`); the app page itself is never redirected to the browser
 
@@ -118,13 +118,15 @@ States the startup page must cover: detecting → select dsh (candidate list + m
 ### DevTools (Q16)
 - No menu bar; register an **F12 shortcut** to toggle DevTools (off by default)
 
-### Completion notification (2026-08-17)
-- When the harness finishes answering and the window is **minimized**, the app shows a Windows toast ("回答已完成"); clicking it restores and focuses the window
-- Detection: a `TASK_WATCHER` script is injected into the dsh page (only for `APP_URL` loads, re-injected on every `did-finish-load`) — a `MutationObserver` watches the composer card (`[data-composer-card="true"]`); "generating" = the primary button (`button[class$="_primary"]`) shows the stop icon (`svg rect`) or a 停止/Stop aria-label; completion = that state clears after an 800ms settle delay, then `window.electronAPI.notifyTaskComplete()` reports via IPC
-- Manual stop (clicking the stop button) is tracked and does **not** notify
+### Completion notification (2026-08-17, updated 2026-08-20: official event stream; 2026-08-20: failures notify too; 2026-08-20: per-run detection fixes duplicate toasts)
+- When a harness run (task) ends and the window is **minimized** at that moment, the app shows a Windows toast ("任务有新回复"); clicking it restores and focuses the window
+- Detection (replaced the old DOM `TASK_WATCHER` injection, deleted 2026-08-20): the **main process** connects directly to dsh's official event streams — `ws://127.0.0.1:3080/api/events.host` + `ws://127.0.0.1:3080/api/events.mux` (same channels the web UI uses; no auth, no handshake, frames are `{type:"server-request", rpcId, method, payload}`)
+- **"Task ended" = the session's `host/session-status` running:true→false flip** (driven by `agent/status`, the same signal as the composer's stop button: `primaryStops = running && subagent === null`). The agent-loop's `kick()` is `while (await this.turn())` — one user task runs all its turns before returning to idle, so `running:false` fires **once per task**. Never notify per `turn/end`: one task can contain multiple turns, which caused duplicate toasts
+- The terminal reason comes from the run's **last `turn/end`** (mux stream). Notify on **every** reason — `completed` and failures (`error`/`blocked`/`max-tokens`/`interrupted`) alike; **manual stop does not notify** (`aborted`) and subagent sessions are skipped (origin from `host/session-added` + `session.list` baseline)
+- Cross-stream ordering: `turn/end` (mux WS) and `running:false` (host WS) are two sockets with no ordering guarantee, so `running:false` waits a 400ms settle window (or is finalized early when the trailing `turn/end` arrives) before evaluating; a `session.list` baseline on connect/reconnect marks already-running sessions (reuse case) and existing subagent sessions
+- `src/task-events.js` owns the watcher: `startTaskWatcher()` on dsh view mount (`view.js` `loadApp`), `stopTaskWatcher()` on `removeDshView` (dsh crash), auto-reconnect (3s) while started; Node ≥22 global `WebSocket` (Electron 43 = Node 24), zero new dependencies; pure predicate `shouldNotifyRunEnd` unit-tested in `test/task-events.test.js`
 - Requires `app.setAppUserModelId('github.zhenghaoyang24.dsh-desktop')` (matches `appId`) — without it Windows toasts silently fail
 - AUMID / `appId` 统一为 `github.zhenghaoyang24.dsh-desktop`：Windows 会**按 AUMID 缓存任务栏图标**；旧值 `com.dsh.desktop` 的图标缓存曾被污染成 Electron 默认图标，换新值可强制生成新缓存条目、恢复正确图标。务必保持 `main.js` 的 AUMID 与 `electron-builder.yml` 的 `appId` 一致，且**不要**改回旧值（除非先清掉 `%LocalAppData%\Microsoft\Windows\Explorer\iconcache_*.db`）
-- The selectors are bilingual (zh/en) and resilient to CSS-module hash changes (`[class$="_primary"]`, stable `data-composer-card` attribute)
 
 ## Directory layout
 
@@ -149,8 +151,8 @@ dsh-desktop\
 │   ├── view.js              # dsh WebContentsView: loadApp / layoutDshView / removeDshView / 内容全屏 enter/exit/toggle / handleGlobalKey (F11/F12)
 │   ├── window.js            # createWindow (close prompt, F11/F12 按键, external links)
 │   ├── ipc.js               # All ipcMain handlers (registered on require)
+│   ├── task-events.js       # 任务完成通知：主进程直连 dsh 官方事件流（/api/events.mux + .host），running:true→false（成功或失败）→ 最小化时弹 toast
 │   └── injected/
-│       ├── task-watcher.js  # TASK_WATCHER (answer-complete detection script)
 │       ├── chrome.js        # CHROME_CSS + chromeScript() (custom top bar: logo + 帮助/View 按钮)
 │       ├── about.js         # ABOUT_OVERLAY_CSS + aboutOverlayScript() (当前 dsh / 关于 overlay)
 │       ├── update-check.js  # UPDATE_CHECK_CSS + updateCheckScript() (检查 dsh 更新 overlay)
@@ -167,7 +169,8 @@ dsh-desktop\
 │   ├── status-core.test.js  # looksLikePath + i18n 字典完整性
 │   ├── startup.test.js      # startFailureText
 │   ├── dsh.test.js          # verifyDsh（mock child_process 超时/退出/error 分支）
-│   └── port.test.js         # probePort（match / 非 dsh / error / timeout）
+│   ├── port.test.js         # probePort（match / 非 dsh / error / timeout）
+│   └── task-events.test.js  # shouldNotifyRunEnd（成功/失败原因、aborted、子代理、未运行/无回合事件）
 ├── buildResources/
 │   ├── logo.png             # Black DeepSeek logo, transparent bg (startup-page top logo)
 │   ├── logo-light.png       # White DeepSeek logo (no longer used by window; kept as resource)
@@ -262,7 +265,7 @@ git push origin vx.y.z
 - [ ] Clicking an external link in the dsh page opens the system default browser, never the app window
 - [ ] Switching light/dark/system in the harness UI updates the title bar theme live
 - [ ] Switching language in the harness UI updates the app UI **live** (帮助↔Help, the dropdown menu, and the whole 「当前 dsh / 关于」 overlay follow `locale.preference`); with no `locale.preference` or a non-zh setting the app defaults to **English** (startup page, menu, overlay, close prompt, toast)
-- [ ] Answer finished while the window is minimized → toast "回答已完成"; clicking it restores the window; manual stop does not notify
+- [ ] A run (task) ends (success **or** failure) while the window is minimized → toast "任务有新回复"（主进程直连 dsh 官方事件流，按 host/session-status running 翻转检测、每任务只弹一次，不受最小化渲染节流影响）; clicking it restores the window; manual stop (turn/end aborted) and subagent runs do not notify; the toast is skipped when the window is not minimized at that moment
 
 ## Known risks / notes
 

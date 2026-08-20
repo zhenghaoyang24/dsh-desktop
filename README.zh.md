@@ -107,11 +107,11 @@ dsh-desktop/
 │   ├── ipc.js               # IPC 处理器
 │   ├── theme.js             # 主题同步
 │   ├── i18n.js              # 语言支持
+│   ├── task-events.js       # 完成通知（dsh 官方事件流）
 │   └── injected/            # 注入到 dsh 页面的脚本
 │       ├── chrome.js        # 自定义标题栏
 │       ├── dropdown.js      # 帮助/视图菜单
-│       ├── about.js         # 关于浮层
-│       └── task-watcher.js  # 完成检测
+│       └── about.js         # 关于浮层
 ├── renderer/                # 启动页 UI
 │   ├── status.html          # 主 HTML
 │   ├── status.js            # UI 逻辑

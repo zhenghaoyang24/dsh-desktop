@@ -107,11 +107,11 @@ dsh-desktop/
 │   ├── ipc.js               # IPC handlers
 │   ├── theme.js             # Theme synchronization
 │   ├── i18n.js              # Language support
+│   ├── task-events.js       # Completion notification (dsh official event streams)
 │   └── injected/            # Scripts injected into dsh page
 │       ├── chrome.js        # Custom title bar
 │       ├── dropdown.js      # Help/View menus
-│       ├── about.js         # About overlay
-│       └── task-watcher.js  # Completion detection
+│       └── about.js         # About overlay
 ├── renderer/                # Startup page UI
 │   ├── status.html          # Main HTML
 │   ├── status.js            # UI logic

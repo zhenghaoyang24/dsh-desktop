@@ -1,4 +1,4 @@
-const { ipcMain, dialog, shell, Notification, app } = require("electron");
+const { ipcMain, dialog, shell, app } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { state } = require("./state");
@@ -169,19 +169,8 @@ ipcMain.handle("open-log", () => {
   }
 });
 
-// 回答完成上报：只在窗口最小化时弹系统通知
-ipcMain.on("task-complete", () => {
-  if (!state.win || state.win.isDestroyed()) return;
-  if (!state.win.isMinimized()) return;
-  const n = new Notification({ title: "DeepSeek Harness", body: t("toastBody") });
-  n.on("click", () => {
-    if (state.win && !state.win.isDestroyed()) {
-      state.win.restore();
-      state.win.focus();
-    }
-  });
-  n.show();
-});
+// 回答完成通知已移至 src/task-events.js（主进程直连 dsh 官方事件流，2026-08-20）：
+// 旧的 DOM 注入监听 + task-complete IPC 已移除
 
 // 文件树面板：切换开关，重置 dsh 视图布局，通知启动页
 ipcMain.handle("toggle-file-panel", () => {
