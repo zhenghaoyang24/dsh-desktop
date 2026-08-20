@@ -12,10 +12,11 @@ const MENUS = {
   help: [
     { id: "current-dsh", key: "menuCurrentDsh" },
     { id: "check-update", key: "menuCheckUpdate" },
-    { id: "home", key: "menuHome" },
+    { id: "refresh-dsh", key: "menuRefreshDsh" },
     null,
     { id: "community", key: "menuCommunity" },
     { id: "awesome-plugin", key: "menuAwesomePlugin" },
+    { id: "home", key: "menuHome" },
     null,
     { id: "about", key: "menuAbout" },
   ],

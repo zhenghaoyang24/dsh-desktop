@@ -49,6 +49,7 @@
       errPathEmpty: '路径不能为空',
       // —— 检查更新 ——
       menuCheckUpdate: '检查 dsh 更新',
+      menuRefreshDsh: '刷新 dsh 页面',
       updateTitle: '检查 dsh 更新',
       updateCurrentVersion: '当前版本：',
       updateLatestVersion: '最新版本：',
@@ -124,6 +125,7 @@
       errPathEmpty: 'Path must not be empty',
       // —— 检查更新 ——
       menuCheckUpdate: 'Check dsh Update',
+      menuRefreshDsh: 'Refresh dsh Page',
       updateTitle: 'Check dsh Update',
       updateCurrentVersion: 'Current version: ',
       updateLatestVersion: 'Latest version: ',

@@ -52,6 +52,11 @@ ipcMain.on("dropdown-action", (_e, menuId, action) => {
       case "check-update":
         showUpdateCheckDialog();
         break;
+      case "refresh-dsh":
+        if (state.dshView && !state.dshView.webContents.isDestroyed()) {
+          state.dshView.webContents.reload();
+        }
+        break;
       case "home":
         shell.openExternal(HOME_URL);
         break;

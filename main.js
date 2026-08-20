@@ -1,5 +1,11 @@
 // 入口：应用生命周期 + 装配各功能模块（业务逻辑见 src/）
 const { app, nativeTheme } = require("electron");
+const path = require("path");
+
+// 使用 appId 作为 userData 目录名，避免与其他应用冲突
+// Windows: %APPDATA%\github.zhenghaoyang24.dsh-desktop\
+app.setPath("userData", path.join(app.getPath("appData"), "github.zhenghaoyang24.dsh-desktop"));
+
 const { state } = require("./src/state");
 const { applyTheme, startSettingsWatch } = require("./src/theme");
 const { applyLanguage } = require("./src/i18n");

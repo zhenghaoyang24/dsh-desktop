@@ -19,5 +19,6 @@ win:
   target:
     - zip
     - portable
+  artifactName: "dsh-desktop-${version}-windows-x64.${ext}"
 portable:
-  artifactName: dsh-desktop.exe
+  artifactName: "dsh-desktop-${version}-windows-x64.exe"
