@@ -25,7 +25,7 @@ The user has dsh (DeepSeek Harness) installed globally. This project builds an E
 How to tell that "what's running on 3080 is dsh" (tested in practice):
 - GET `http://127.0.0.1:3080`
 - Page `<title>` is `DeepSeek Harness`
-- HTML contains `window.__DSH_BOOT__`
+- HTML contains the `__DSH_BOOT__` marker（旧版 `window.__DSH_BOOT__`，新版 `globalThis["__DSH_BOOT__"]`，2026-08-21 起只匹配标记名以兼容两者）
 - Match → reuse; 200 but no match → occupied by non-dsh
 
 ### dsh provisioning (Q1, updated 2026-08-17: manual selection; updated 2026-08-17: trust-direct-start)

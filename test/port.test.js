@@ -47,6 +47,17 @@ test("响应包含 dsh 标志 → match", async (t) => {
   assert.deepEqual(r, { alive: true, match: true });
 });
 
+test("新版 dsh 标志 globalThis[\"__DSH_BOOT__\"] → match", async (t) => {
+  const dshPage =
+    "<html><head><title>DeepSeek Harness</title></head><body>" +
+    '<script>globalThis["__DSH_BOOT__"]={}</script></body></html>';
+  const fakeReq = mockGet(t, dshPage);
+  const p = probePort();
+  fakeReq.__respond();
+  const r = await p;
+  assert.deepEqual(r, { alive: true, match: true });
+});
+
 test("有响应但不是 dsh → 不匹配", async (t) => {
   const fakeReq = mockGet(t, "<html><title>Other App</title></html>");
   const p = probePort();

@@ -2,7 +2,8 @@ const http = require("http");
 const { execFile, spawn } = require("child_process");
 const { APP_URL } = require("./constants");
 
-// 探测 3080：alive=有响应；match=是 dsh（页面 title + __DSH_BOOT__ 标志）
+// 探测 3080：alive=有响应；match=是 dsh（页面 title + __DSH_BOOT__ 标志）。
+// 旧版 HTML 注入 window.__DSH_BOOT__，新版注入 globalThis["__DSH_BOOT__"]，只匹配标记名即可兼容两者
 function probePort(timeout = 3000) {
   return new Promise((resolve) => {
     const req = http.get(APP_URL, { timeout }, (res) => {
@@ -16,7 +17,7 @@ function probePort(timeout = 3000) {
         resolve({
           alive: true,
           match:
-            body.includes("window.__DSH_BOOT__") &&
+            body.includes("__DSH_BOOT__") &&
             /<title>\s*DeepSeek Harness\s*<\/title>/i.test(body),
         });
       });
