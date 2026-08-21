@@ -55,7 +55,7 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
 - Two artifacts; the **zip directory build** is the primary (unzip and run, instant start); the single-file portable is secondary (no extraction needed for distribution, but self-extracts ~15s on every launch)
   - `build/dsh-desktop-${version}-windows-x64.zip` → unzip, then double-click `dsh-desktop.exe`
   - `build/dsh-desktop-${version}-windows-x64.exe` (electron-builder `portable` target)
-- App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.5`
+- App/product name: `dsh-desktop`; exe file name: `dsh-desktop.exe`; version `0.1.6`
 - Icon: exe icon is `buildResources/icon.png` (black DeepSeek logo on a white rounded-corner background); the window/taskbar icon uses `buildResources/icon.ico` (multi-size .ico generated from `icon.png`, same white rounded bg, so the taskbar icon matches the exe); the startup-page top logo uses `buildResources/logo.png` (transparent background, referenced as `../buildResources/logo.png` from `renderer/status.html` — the old `renderer/logo.png` copy was removed)
 - Not signed (SmartScreen considered for V2)
 
