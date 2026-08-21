@@ -23,6 +23,8 @@ const $ = (id) => document.getElementById(id);
 
 const VIEWS = ['detecting', 'select-dsh', 'starting', 'port-conflict', 'failed', 'crashed'];
 const VALIDATE_TIMEOUT_MS = 6000; // 渲染层兜底超时（主进程 verifyDsh 上限 5s）
+// starting 视图的单行切换文案：spawn/wait 合并为「启动 dsh」，load/reuse 各一句
+const STARTING_PHASE_KEY = { spawn: 'starting', wait: 'starting', load: 'loadingLine', reuse: 'reuseLine' };
 let selectedPath = null;
 
 function show(state) {
@@ -107,8 +109,10 @@ api.onStatus((s) => {
     setBusy(false);
     renderCandidates(s.candidates);
   }
-  if (s.state === 'starting' && s.path) {
-    $('starting-sub').textContent = 'dsh: ' + s.path;
+  if (s.state === 'starting') {
+    const key = STARTING_PHASE_KEY[s.phase] || 'starting';
+    $('starting-msg').textContent = t(key);
+    if (s.path) $('starting-sub').textContent = 'dsh: ' + s.path;
   }
   if (s.state === 'failed') {
     $('failed-log').textContent = s.stderr || '';

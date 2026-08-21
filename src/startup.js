@@ -32,6 +32,7 @@ async function startFlow() {
         state.pendingDshPath = null;
         state.currentDshPath = null; // 复用已有实例，非应用启动，路径回退读缓存
         state.startMode = "reuse";
+        sendStatus({ state: "starting", phase: "reuse" });
         loadApp();
         return;
       }
@@ -51,8 +52,9 @@ async function startFlow() {
     log(`[startup] trust cached dsh path, skip -V: ${dshPath}`);
     state.currentDshPath = dshPath;
     state.startMode = "app";
-    sendStatus({ state: "starting", path: dshPath });
+    sendStatus({ state: "starting", path: dshPath, phase: "spawn" });
     const child = spawnDsh(dshPath);
+    sendStatus({ state: "starting", path: dshPath, phase: "wait" });
     const result = await waitForPort(child);
     if (result.ok) {
       // 启动成功才把用户确认的路径写入缓存（永久）
@@ -60,6 +62,7 @@ async function startFlow() {
         writeSettings({ dshPath: state.pendingDshPath });
         state.pendingDshPath = null;
       }
+      sendStatus({ state: "starting", path: dshPath, phase: "load" });
       loadApp();
       return;
     }
@@ -91,11 +94,13 @@ async function startFlow() {
     await killDsh();
     log(`[startup] fallback to candidate: ${fallback}`);
     state.currentDshPath = fallback;
-    sendStatus({ state: "starting", path: fallback });
+    sendStatus({ state: "starting", path: fallback, phase: "spawn" });
     const child2 = spawnDsh(fallback);
+    sendStatus({ state: "starting", path: fallback, phase: "wait" });
     const retried = await waitForPort(child2);
     if (retried.ok) {
       writeSettings({ dshPath: fallback }); // 启动成功才写缓存
+      sendStatus({ state: "starting", path: fallback, phase: "load" });
       loadApp();
       return;
     }
