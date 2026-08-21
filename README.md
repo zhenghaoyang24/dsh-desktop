@@ -131,6 +131,9 @@ A: Install dsh globally (`npm install -g @deepseek-ai/dsh`) or manually enter th
 **Q: How to change dsh path after initial setup?**
 A: Delete `settings.json` in `%APPDATA%\github.zhenghaoyang24.dsh-desktop\` and restart the application.
 
+**Q: I didn't get a notification when the task finished?**
+A: Notifications only appear when the window is minimized at the exact moment a task ends (whether it succeeds or fails); no toast is shown while the window is visible. If you still get nothing while minimized, check Windows notification settings: Settings → System → Notifications, make sure the top-level "Notifications" toggle is on and dsh-desktop is allowed under "Notifications from these senders", and don't enable Focus Assist / Do Not Disturb.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

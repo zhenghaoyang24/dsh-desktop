@@ -131,6 +131,9 @@ A: 全局安装 dsh（`npm install -g @deepseek-ai/dsh`）或在提示时手动�
 **Q: 如何更改已设置的 dsh 路径？**
 A: 删除 `%APPDATA%\github.zhenghaoyang24.dsh-desktop\` 下的 `settings.json` 后重启应用。
 
+**Q: 任务完成时没有收到通知？**
+A: 通知只在「任务结束（成功或失败）的那一刻窗口处于最小化」时弹出；窗口正常显示时不会打扰。如果最小化后仍没有收到，请检查 Windows 系统通知设置：设置 → 系统 → 通知，确保顶部「通知」总开关已打开，并在「通知来自这些发送者」中允许 dsh-desktop，同时不要开启「专注助手 / 请勿打扰」。
+
 ## 参与贡献
 
 欢迎提交 Pull Request！
