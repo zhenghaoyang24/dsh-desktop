@@ -49,7 +49,8 @@
       errPathEmpty: '路径不能为空',
       // —— 检查更新 ——
       menuCheckUpdate: '检查 dsh 更新',
-      menuRefreshDsh: '刷新 dsh 页面',
+      menuRefreshDsh: '刷新页面',
+      menuOpenWeb: '打开 dsh web',
       updateTitle: '检查 dsh 更新',
       updateCurrentVersion: '当前版本：',
       updateLatestVersion: '最新版本：',
@@ -74,6 +75,7 @@
       view: '视图',
       // —— View 菜单 / 内容全屏 ——
       viewMaximize: '最大化',
+      menuDevtools: '打开开发者工具',
       fullscreenHint: 'F11 退出最大化',
       // —— 关于浮层（当前 dsh / 关于 面板） ——
       currentDsh: '当前 dsh',
@@ -125,7 +127,8 @@
       errPathEmpty: 'Path must not be empty',
       // —— 检查更新 ——
       menuCheckUpdate: 'Check dsh Update',
-      menuRefreshDsh: 'Refresh dsh Page',
+      menuRefreshDsh: 'Refresh Page',
+      menuOpenWeb: 'Open dsh web',
       updateTitle: 'Check dsh Update',
       updateCurrentVersion: 'Current version: ',
       updateLatestVersion: 'Latest version: ',
@@ -150,6 +153,7 @@
       view: 'View',
       // —— View 菜单 / 内容全屏 ——
       viewMaximize: 'Maximize',
+      menuDevtools: 'Open DevTools',
       fullscreenHint: 'Press F11 to exit fullscreen',
       // —— 关于浮层（当前 dsh / 关于 面板） ——
       currentDsh: 'Current dsh',

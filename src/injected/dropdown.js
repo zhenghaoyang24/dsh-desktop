@@ -10,9 +10,10 @@ const { T } = require("../../renderer/status-core"); // i18n 唯一来源
 // 菜单配置：menuId → 菜单项数组；null 为分组分隔线；id 是主进程 dropdown-action 的动作标识
 const MENUS = {
   help: [
+    { id: "refresh-dsh", key: "menuRefreshDsh" },
+    { id: "open-web", key: "menuOpenWeb" },
     { id: "current-dsh", key: "menuCurrentDsh" },
     { id: "check-update", key: "menuCheckUpdate" },
-    { id: "refresh-dsh", key: "menuRefreshDsh" },
     null,
     { id: "community", key: "menuCommunity" },
     { id: "awesome-plugin", key: "menuAwesomePlugin" },
@@ -22,7 +23,10 @@ const MENUS = {
   ],
   // View 菜单：后续「调整布局等视图相关内容」的菜单项都加在这里；
   // shortcut 为菜单项右侧的快捷键提示（没有则省略）
-  view: [{ id: "maximize", key: "viewMaximize", shortcut: "F11" }],
+  view: [
+    { id: "maximize", key: "viewMaximize", shortcut: "F11" },
+    { id: "devtools", key: "menuDevtools" },
+  ],
 };
 
 // 菜单用到的文案子集，注入到页面脚本里

@@ -50,7 +50,7 @@ function createWindow(dark) {
     if (state.lastStatus) win.webContents.send("status", state.lastStatus);
     injectChrome(nativeTheme.shouldUseDarkColors);
   });
-  // F12 切换 DevTools / F11 切换内容全屏（dsh 视图自身也挂了同一处理器，见 view.js）
+  // F11 切换内容全屏（dsh 视图自身也挂了同一处理器，见 view.js）；DevTools 不再走快捷键，仅 View 菜单按钮
   win.webContents.on("before-input-event", (_e, input) => handleGlobalKey(input));
   win.on("page-title-updated", (e) => e.preventDefault());
   win.on("resize", () => layoutDshView());

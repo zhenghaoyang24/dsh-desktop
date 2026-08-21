@@ -106,7 +106,9 @@ function pushDshOutput(d) {
 function spawnDsh(dshPath) {
   state.webReady = false;
   state.dshOut = "";
-  const child = runDshCmd(dshPath, ["web"]);
+  // 应用自己用 WebContentsView 加载页面，必须关掉 dsh 自带的“打开默认浏览器”默认行为
+  // （openBrowser 默认为 true），否则 spawn 时会额外弹出一个 127.0.0.1:3080 的浏览器窗口
+  const child = runDshCmd(dshPath, ["web", "--no-open"]);
   state.dshProc = child;
   state.dshOwned = true;
   child.stdout.on("data", pushDshOutput);
@@ -149,14 +151,16 @@ function waitForPort(child, timeoutMs = START_TIMEOUT_MS) {
 // 返回 { version: "x.y.z" | null, error: string | null }
 function checkLatestDshVersion() {
   return new Promise((resolve) => {
-    const child = cp.spawn(
-      "cmd.exe",
-      ["/d", "/s", "/c", `"npm view ${DSH_NPM_NAME} version"`],
-      { windowsHide: true, windowsVerbatimArguments: true, stdio: ["ignore", "pipe", "pipe"] },
-    );
+    const child = cp.spawn("cmd.exe", ["/d", "/s", "/c", `"npm view ${DSH_NPM_NAME} version"`], {
+      windowsHide: true,
+      windowsVerbatimArguments: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let out = "";
     const timer = setTimeout(() => {
-      try { child.kill(); } catch (_) {}
+      try {
+        child.kill();
+      } catch (_) {}
     }, 15000);
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
@@ -168,10 +172,19 @@ function checkLatestDshVersion() {
       clearTimeout(timer);
       if (code !== 0) {
         const s = out.trim().toLowerCase();
-        if (s.includes("enoent") || s.includes("not found") || s.includes("'" + DSH_NPM_NAME.toLowerCase() + "' is not recognized")) {
+        if (
+          s.includes("enoent") ||
+          s.includes("not found") ||
+          s.includes("'" + DSH_NPM_NAME.toLowerCase() + "' is not recognized")
+        ) {
           return resolve({ version: null, error: "npm_not_found" });
         }
-        if (s.includes("network") || s.includes("connect") || s.includes("timeout") || s.includes("eresolve")) {
+        if (
+          s.includes("network") ||
+          s.includes("connect") ||
+          s.includes("timeout") ||
+          s.includes("eresolve")
+        ) {
           return resolve({ version: null, error: "network" });
         }
         return resolve({ version: null, error: "unknown" });

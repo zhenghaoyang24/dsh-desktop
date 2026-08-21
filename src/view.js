@@ -15,18 +15,13 @@ const { isExternalUrl } = require("./external");
 const { sendStatus } = require("./status");
 const { color } = require("./theme-palette");
 
-// 全局快捷键：F12 DevTools / F11 切换内容全屏。
+// 全局快捷键：F11 切换内容全屏。
 // before-input-event 按 webContents 分发，所以同时挂到启动页与 dsh 视图，
 // 保证焦点在 dsh 页面（主界面常态）时快捷键仍然生效。
+// 注意：DevTools 不再绑定快捷键，只能通过顶栏 View 菜单的「打开开发者工具」按钮打开。
 function handleGlobalKey(input) {
   if (input.type !== "keyDown") return;
-  if (input.key === "F12") {
-    const target =
-      state.dshView && !state.dshView.webContents.isDestroyed()
-        ? state.dshView.webContents
-        : state.win && state.win.webContents;
-    if (target) target.toggleDevTools();
-  } else if (input.key === "F11") {
+  if (input.key === "F11") {
     if (state.dshView) toggleFullscreenMode();
   }
 }
@@ -128,7 +123,7 @@ async function loadApp() {
       injectDropdown(wc, nativeTheme.shouldUseDarkColors, state.currentLang);
       injectFullscreenHint(wc, nativeTheme.shouldUseDarkColors, state.currentLang);
     });
-    // 焦点在 dsh 页面时 F11/F12 快捷键仍然生效（before-input-event 按 webContents 分发）
+    // 焦点在 dsh 页面时 F11 快捷键仍然生效（before-input-event 按 webContents 分发；F12 已改为仅菜单按钮）
     wc.on("before-input-event", (_e, input) => handleGlobalKey(input));
     wc.on("page-title-updated", (e) => e.preventDefault());
     // 外部链接转交系统默认浏览器

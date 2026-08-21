@@ -92,7 +92,7 @@ How to tell that "what's running on 3080 is dsh" (tested in practice):
   6. **DeepSeek Harness 官网** — opens `https://www.deepseek.com/harness/` in the default browser
   7. **关于** — the same overlay in app mode: **dsh-desktop version**, **仓库地址** (`open-repo`), and the **应用日志** path as a clickable link (`open-log`, opens the logs folder/file)
 - Menu-item clicks report back via `dropdown-action` (menuId + action id whitelist handled in the main process: about/update overlays + `shell.openExternal` links + view-maximize). The menus close on **outside click / Escape / clicking the same button again (toggle, `state.openMenu`) / opening the other menu / window blur** (`win.on('blur')` in `src/window.js`); user-side closes send `dropdown-closed` so the main process resets the button's `.dshc-menu-open` highlight (`dropdown-menu-state`). The old native-menu hover-residue workaround (`resolveHelpHover` + trusted `sendInputEvent` `mouseMove`) was removed — a custom in-page menu has no native window swallowing mouse input, so no stale `:hover` can persist
-- **View 菜单与内容全屏（2026-08-18）**: 顶栏「帮助」右侧的 **View** 按钮（文案 `view`：视图/View，与帮助按钮同一套显隐/高亮/语言逻辑）弹出同组件的下拉菜单，菜单项配置在 `dropdown.js` 的 `MENUS.view` 里（后续「调整布局等视图相关内容」直接加项；菜单项支持可选 `shortcut` 字段渲染右侧快捷键提示，如「最大化 F11」），目前只有一项「最大化」。点击 **View → 最大化** 进入**内容全屏模式**：`win.setFullScreen(true)`（OS 全屏、覆盖任务栏，与浏览器 F11 一致）+ 隐藏自绘顶栏（`chrome-bar-visible` IPC）+ dsh 视图铺满整个窗口内容区（`layoutDshView` 的 `state.fullscreenMode` 分支，y:0 全尺寸）；进入时强制关闭文件树面板并收起已打开的下拉菜单，随后 dsh 视图内弹出「F11 退出最大化」提示（`src/injected/fullscreen-hint.js`，~3.5s 自动淡出、指针穿透、随主题/语言联动）；**F11 切换**进出（`handleGlobalKey` 同时挂在启动页与 dsh 视图的 `before-input-event` 上 —— before-input-event 按 webContents 分发，焦点在 dsh 页面时快捷键也要生效；F12 同理顺带修好）。退出恢复原窗口状态与顶栏；`leave-full-screen`（如 Win+↓ 等外部途径退出）同步复位；dsh 崩溃移除视图时自动退出全屏
+- **View 菜单与内容全屏（2026-08-18）**: 顶栏「帮助」右侧的 **View** 按钮（文案 `view`：视图/View，与帮助按钮同一套显隐/高亮/语言逻辑）弹出同组件的下拉菜单，菜单项配置在 `dropdown.js` 的 `MENUS.view` 里（后续「调整布局等视图相关内容」直接加项；菜单项支持可选 `shortcut` 字段渲染右侧快捷键提示，如「最大化 F11」），目前只有一项「最大化」。点击 **View → 最大化** 进入**内容全屏模式**：`win.setFullScreen(true)`（OS 全屏、覆盖任务栏，与浏览器 F11 一致）+ 隐藏自绘顶栏（`chrome-bar-visible` IPC）+ dsh 视图铺满整个窗口内容区（`layoutDshView` 的 `state.fullscreenMode` 分支，y:0 全尺寸）；进入时强制关闭文件树面板并收起已打开的下拉菜单，随后 dsh 视图内弹出「F11 退出最大化」提示（`src/injected/fullscreen-hint.js`，~3.5s 自动淡出、指针穿透、随主题/语言联动）；**F11 切换**进出（`handleGlobalKey` 同时挂在启动页与 dsh 视图的 `before-input-event` 上 —— before-input-event 按 webContents 分发，焦点在 dsh 页面时快捷键也要生效；DevTools 改为仅由 View 菜单「打开开发者工具」按钮打开，不再绑定 F12 快捷键）。退出恢复原窗口状态与顶栏；`leave-full-screen`（如 Win+↓ 等外部途径退出）同步复位；dsh 崩溃移除视图时自动退出全屏
 - Bar colors: light `#f9fafb` / dark `#1b1b1c`, with a bottom border; the Window Controls Overlay uses the same colors
 - **The dsh page lives in its own `WebContentsView`** positioned below the top bar (`y: 32`, re-laid out on resize/maximize; in 内容全屏 mode it fills the whole window at `y: 0`): the dsh page is **never modified for layout** (no CSS/DOM injection that changes layout), so its own modals, popups and scrollbars behave exactly like a normal browser viewport; only non-layout additions are attached to the view's webContents — the about/update-check overlays, the shared dropdown menus (帮助/View), the fullscreen hint and the external-link handlers; on dsh crash the view is removed so the startup page's crash state shows
 - Title is locked (`page-title-updated` prevented): window/taskbar title always shows `dsh-desktop <version>`, never the page's conversation title
@@ -116,7 +116,7 @@ States the startup page must cover: detecting → select dsh (candidate list + m
 - dsh's stdout/stderr is **written to disk** at `userData/logs/dsh.log`; error states also display it
 
 ### DevTools (Q16)
-- No menu bar; register an **F12 shortcut** to toggle DevTools (off by default)
+- No menu bar; DevTools opens **only via the View menu「打开开发者工具」button** (no F12 shortcut, so it cannot be triggered app-wide by a keypress)
 
 ### Completion notification (2026-08-17, updated 2026-08-20: official event stream; 2026-08-20: failures notify too; 2026-08-20: per-run detection fixes duplicate toasts)
 - When a harness run (task) ends and the window is **minimized** at that moment, the app shows a Windows toast ("任务有新回复"); clicking it restores and focuses the window
@@ -148,8 +148,8 @@ dsh-desktop\
 │   ├── external.js          # isExternalUrl (links to system browser)
 │   ├── dsh.js               # runDshCmd / verifyDsh / findDshCandidates / spawnDsh / killDsh / waitForPort
 │   ├── startup.js           # startFlow (boot state machine) + startFailureText
-│   ├── view.js              # dsh WebContentsView: loadApp / layoutDshView / removeDshView / 内容全屏 enter/exit/toggle / handleGlobalKey (F11/F12)
-│   ├── window.js            # createWindow (close prompt, F11/F12 按键, external links)
+│   ├── view.js              # dsh WebContentsView: loadApp / layoutDshView / removeDshView / 内容全屏 enter/exit/toggle / handleGlobalKey (F11)
+│   ├── window.js            # createWindow (close prompt, F11 按键, external links)
 │   ├── ipc.js               # All ipcMain handlers (registered on require)
 │   ├── task-events.js       # 任务完成通知：主进程直连 dsh 官方事件流（/api/events.mux + .host），running:true→false（成功或失败）→ 最小化时弹 toast
 │   └── injected/
@@ -258,7 +258,7 @@ git push origin vx.y.z
 - [ ] Second double-click: activates the existing window
 - [ ] dsh crashes mid-run: error page + manual restart
 - [ ] dsh logs land in `userData/logs/dsh.log`
-- [ ] F12 toggles DevTools (works with focus both on the startup page and the dsh view); F11 toggles 内容全屏 only when the dsh view is mounted
+- [ ] DevTools opens only via View → 打开开发者工具 button (no F11/F12 key); F11 toggles 内容全屏 only when the dsh view is mounted
 - [ ] Custom top bar (32px) shows the **dsh logo** (black; white in dark mode) + **帮助** and **View** buttons (secondary/muted label color, `#6b7280` light / `rgb(129,133,140)` dark, switching to the **primary text color** on hover), **hidden on the startup page** and shown after the dsh view loads; clicking 帮助 pops a **custom HTML dropdown** below the button with 当前 dsh / 检查 dsh 更新 / 刷新 dsh 页面 / 社区插件 / awesome-dsh-plugin / DeepSeek Harness 官网 / 关于; clicking View pops its own dropdown (currently one item: 最大化); 当前 dsh shows the in-page overlay (dark backdrop + blur) with detected dsh path/version, start mode; 刷新 dsh 页面 reloads the dsh webContents; 官网 opens the site in the default browser; awesome-dsh-plugin opens `https://awesome-dsh-plugin.com/`; 关于 shows dsh-desktop version + repo address + clickable 应用日志 path; the menus close on **outside click / Escape / clicking the same button again (toggle) / opening the other menu / window blur** and the button highlight resets (no stale hover highlight); the menus and their labels follow the theme/language live
 - [ ] View → 最大化: window enters OS fullscreen (covers the taskbar like browser F11), the top bar disappears and only the dsh page fills the screen; a "F11 退出最大化" hint appears over the dsh page and fades out; pressing F11 exits fullscreen, restoring the top bar and the previous window state; entering fullscreen force-closes the file tree panel; if the file tree panel was open it is closed; if dsh crashes while in fullscreen the app exits fullscreen and shows the crash page; Win+↓-style external fullscreen exit also restores the top bar
 - [ ] dsh page renders unmodified in its own view below the top bar: its modals/scrollbars behave normally and nothing is covered

@@ -8,7 +8,7 @@ const { readSettings } = require("./settings-store");
 const { startFlow } = require("./startup");
 const { showAboutDialog, showUpdateCheckDialog, toggleDropdown } = require("./injected/index");
 const { log, logFile } = require("./paths");
-const { PORT, HOME_URL, COMMUNITY_URL, AWESOME_DSH_PLUGIN_URL, REPO_URL, DSH_NPM_NAME, PANEL_WIDTH } = require("./constants");
+const { PORT, APP_URL, HOME_URL, COMMUNITY_URL, AWESOME_DSH_PLUGIN_URL, REPO_URL, DSH_NPM_NAME, PANEL_WIDTH } = require("./constants");
 const { readDirectory, readFileContent, writeFileContent, getWorkspaceRoot } = require("./files");
 const { layoutDshView, toggleFullscreenMode } = require("./view");
 
@@ -57,6 +57,9 @@ ipcMain.on("dropdown-action", (_e, menuId, action) => {
           state.dshView.webContents.reload();
         }
         break;
+      case "open-web":
+        shell.openExternal(APP_URL);
+        break;
       case "home":
         shell.openExternal(HOME_URL);
         break;
@@ -76,6 +79,15 @@ ipcMain.on("dropdown-action", (_e, menuId, action) => {
     switch (action) {
       case "maximize":
         toggleFullscreenMode(); // View → 最大化：内容全屏（窗口全屏 + 隐藏顶栏，F11 退出）
+        break;
+      case "devtools":
+        {
+          const target =
+            state.dshView && !state.dshView.webContents.isDestroyed()
+              ? state.dshView.webContents
+              : (state.win && state.win.webContents);
+          if (target) target.toggleDevTools();
+        }
         break;
       default:
         log("[menu] unknown action: " + action);
